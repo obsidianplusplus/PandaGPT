@@ -1,18 +1,25 @@
 name: PandaGPT
-version: 1.0
+version: '2.0.0'
 main: cn.panda.pandagpt.ChatGPTIntegration
-api-version: 1.12
-description: An intelligent assistant plugin that integrates ChatGPT into Minecraft.
-
+api-version: '26.3'
+description: A context-aware Minecraft assistant with confirmed player actions.
+website: https://github.com/obsidianplusplus/PandaGPT
 commands:
   panda:
-    description: Chat with the Panda AI assistant.
-    usage: /panda <your question>
+    description: Ask Panda, clear your conversation, or confirm a proposed action.
+    usage: /panda <question|clear|confirm code|cancel>
+    permission: pandagpt.use
   pandaadmin:
-    description: Manage the Panda plugin.
-    usage: /pandaadmin <reload|clearchat>
-
+    description: Reload configuration, inspect status, or clear all sessions.
+    usage: /pandaadmin <reload|status|clearchat>
+    permission: pandagpt.admin
 permissions:
+  pandagpt.use:
+    description: Allows asking the assistant questions.
+    default: true
+  pandagpt.actions:
+    description: Allows receiving and confirming allowlisted player commands.
+    default: op
   pandagpt.admin:
-    description: Allows the use of Panda management commands.
+    description: Allows managing PandaGPT.
     default: op

@@ -1,84 +1,38 @@
 package cn.panda.pandagpt.util;
 
-import cn.panda.pandagpt.ChatGPTIntegration;
-
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
+import cn.panda.pandagpt.config.Settings;
 import java.io.IOException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.nio.file.Path;
+import java.util.UUID;
+import java.util.logging.*;
 
-public class PandaLogger {
-
-    private final ChatGPTIntegration plugin;
-    private final File logFile;
-    private final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-
-    public PandaLogger(ChatGPTIntegration plugin) {
-        this.plugin = plugin;
-        File dataFolder = plugin.getDataFolder();
-        if (!dataFolder.exists()) {
-            dataFolder.mkdirs();
-        }
-        logFile = new File(dataFolder, "panda.log");
-        if (!logFile.exists()) {
-            try {
-                logFile.createNewFile();
-            } catch (IOException e) {
-                plugin.getLogger().severe("无法创建 panda.log 文件！");
-                e.printStackTrace();
-            }
-        }
+/** Thread-safe rotating UTF-8 logging; raw conversation logging is opt-in. */
+public final class PandaLogger implements AutoCloseable {
+    private final Logger log;
+    private final Settings settings;
+    private final Handler handler;
+    public PandaLogger(Path folder, Settings settings) throws IOException {
+        this.settings = settings;
+        log = Logger.getLogger("PandaGPT.file." + UUID.randomUUID());
+        log.setUseParentHandlers(false);
+        if (settings.loggingEnabled()) {
+            handler = new FileHandler(folder.resolve("panda-%g.log").toString(), settings.logBytes(), settings.logFiles(), true);
+            handler.setEncoding("UTF-8");
+            handler.setFormatter(new SimpleFormatter());
+            log.addHandler(handler);
+        } else handler = null;
     }
-
-    public void logConversation(String playerName, String userMessage, String pandaResponse) {
-        log("[CONVERSATION] [" + playerName + "] User: " + userMessage);
-        log("[CONVERSATION] [" + playerName + "] Panda: " + pandaResponse);
+    public void event(UUID player, String event) {
+        if (settings.loggingEnabled()) log.info("player=" + player + " " + sanitize(event));
     }
-
-    public void logAction(String playerName, String action) {
-        log("[ACTION] [" + playerName + "] " + action);
+    public void conversation(UUID player, String question, String answer) {
+        if (settings.logConversations()) event(player, "question=" + question + " answer=" + answer);
     }
-
-    public void info(String message) {
-        plugin.getLogger().info("[PandaGPT] " + message);
-        log("[INFO] " + message);
+    private String sanitize(String message) {
+        String value = message.replace('\n', ' ').replace('\r', ' ');
+        if (!settings.apiKey().isBlank()) value = value.replace(settings.apiKey(), "[REDACTED]");
+        if (!settings.proxy().password().isBlank()) value = value.replace(settings.proxy().password(), "[REDACTED]");
+        return value;
     }
-
-    public void warning(String message) {
-        plugin.getLogger().warning("[PandaGPT] " + message);
-        log("[WARNING] " + message);
-    }
-
-    public void severe(String message) {
-        plugin.getLogger().severe("[PandaGPT] " + message);
-        log("[SEVERE] " + message);
-    }
-
-    public void logCommandDetection(String playerName, String aiResponse, String extractedCommand) {
-        log("[COMMAND_DETECTED] [" + playerName + "] AI Response: " + aiResponse + ", Extracted Command: " + extractedCommand);
-    }
-
-    public void logCommandExecutionAttempt(String playerName, String command) {
-        log("[COMMAND_ATTEMPT] [" + playerName + "] Attempting to execute command: " + command);
-    }
-
-    public void logCommandExecutionSuccess(String playerName, String command) {
-        log("[COMMAND_SUCCESS] [" + playerName + "] Successfully executed command: " + command);
-    }
-
-    public void logCommandExecutionFailure(String playerName, String command, String reason) {
-        log("[COMMAND_FAILURE] [" + playerName + "] Failed to execute command: " + command + ", Reason: " + reason);
-    }
-
-    private void log(String message) {
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(logFile, true))) {
-            writer.write(dateFormat.format(new Date()) + " " + message);
-            writer.newLine();
-        } catch (IOException e) {
-            plugin.getLogger().severe("写入 panda.log 文件时发生错误！");
-            e.printStackTrace();
-        }
-    }
+    @Override public void close() { if (handler != null) { log.removeHandler(handler); handler.close(); } }
 }

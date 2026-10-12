@@ -1,49 +1,26 @@
 package cn.panda.pandagpt.awareness;
 
-import cn.panda.pandagpt.ChatGPTIntegration;
-import org.bukkit.Bukkit;
+import cn.panda.pandagpt.config.Settings;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
+import java.util.Comparator;
+import java.util.Set;
 
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-public class CommandAwareness {
-
-    private final ChatGPTIntegration plugin;
-    // Regular expression to match patterns starting with a slash followed by one or more word characters
-    private static final Pattern COMMAND_PATTERN = Pattern.compile("/([a-zA-Z0-9_]+(?: [a-zA-Z0-9_]+)*)");
-
-    public CommandAwareness(ChatGPTIntegration plugin) {
-        this.plugin = plugin;
-    }
-
-    public String getContext(Player player) {
-        if (!plugin.isCommandAwarenessEnabled()) {
-            return "";
+/** Describes registered plugin commands; never extracts slash text from model prose. */
+public final class CommandAwareness {
+    public static String context(Player player, Settings settings) {
+        if (!settings.commandAwareness()) return "";
+        StringBuilder out = new StringBuilder("Server: ").append(player.getServer().getVersion()).append("\nAvailable plugin commands:\n");
+        Set<String> seen = new java.util.HashSet<>();
+        for (Plugin plugin : player.getServer().getPluginManager().getPlugins()) {
+            if (!plugin.isEnabled()) continue;
+            plugin.getDescription().getCommands().keySet().stream().sorted().forEach(name -> {
+                var command = player.getServer().getPluginCommand(name);
+                if (command != null && command.testPermissionSilent(player) && seen.size() < 40 && seen.add(name))
+                    out.append('/').append(name).append(": ").append(command.getDescription()).append('\n');
+            });
         }
-
-        StringBuilder contextBuilder = new StringBuilder("Server Information:\n");
-        contextBuilder.append("  - Minecraft Version: ").append(Bukkit.getVersion()).append("\n");
-        contextBuilder.append("  - Bukkit Version: ").append(Bukkit.getBukkitVersion()).append("\n");
-        contextBuilder.append("  - Installed Plugins (Name and Version):").append("\n");
-        for (Plugin pl : Bukkit.getPluginManager().getPlugins()) {
-            contextBuilder.append("    - ").append(pl.getName()).append(" v").append(pl.getDescription().getVersion()).append("\n");
-        }
-        return contextBuilder.toString();
-    }
-
-    public boolean containsCommand(String text) {
-        Matcher matcher = COMMAND_PATTERN.matcher(text);
-        return matcher.find();
-    }
-
-    // Modify extractCommand method to extract the found command
-    public String extractCommand(String text) {
-        Matcher matcher = COMMAND_PATTERN.matcher(text);
-        if (matcher.find()) {
-            return matcher.group(); // Return the entire matched command string
-        }
-        return null;
+        out.append("Proposed commands must use one of these exact roots: ").append(settings.allowedCommands()).append('\n');
+        return out.toString();
     }
 }

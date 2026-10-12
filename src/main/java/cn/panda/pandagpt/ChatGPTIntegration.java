@@ -1,246 +1,114 @@
 package cn.panda.pandagpt;
 
-import cn.panda.pandagpt.awareness.CommandAwareness;
-import org.bukkit.plugin.java.JavaPlugin;
+import cn.panda.pandagpt.ai.HttpAiProvider;
+import cn.panda.pandagpt.awareness.RecipeKnowledge;
 import cn.panda.pandagpt.commands.PandaCommand;
+import cn.panda.pandagpt.config.Settings;
 import cn.panda.pandagpt.listeners.ChatListener;
+import cn.panda.pandagpt.service.AssistantService;
 import cn.panda.pandagpt.util.PandaLogger;
-import org.bukkit.entity.Player; // Ensure Player is imported
+import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitTask;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.*;
+import java.util.Objects;
+import java.util.regex.Pattern;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+public final class ChatGPTIntegration extends JavaPlugin {
+    private volatile Settings settings;
+    private volatile Pattern triggerPattern;
+    private AssistantService service;
+    private BukkitTask cleanup;
 
-public class ChatGPTIntegration extends JavaPlugin {
-
-    private static ChatGPTIntegration instance;
-    private String apiKey;
-    private String geminiApiKey;
-    private long cooldownTime;
-    private String defaultProvider;
-    private String openaiModel;
-    private String geminiModel;
-    private String openaiApiUrl;
-    private String geminiApiUrl;
-    private boolean proxyEnabled;
-    private String proxyHost;
-    private int proxyPort;
-    private String proxyUsername;
-    private String proxyPassword;
-    private boolean environmentAwarenessEnabled;
-    private boolean commandAwarenessEnabled;
-    private String personalityTemplate; // Modified: Use personalityTemplate to store the original template
-    private final Map<String, Long> lastRequestTime = new ConcurrentHashMap<>();
-    private final Map<String, ConversationHistory> conversationHistory = new ConcurrentHashMap<>();
-    private PandaLogger pandaLogger;
-    private CommandAwareness commandAwareness;
-
-    @Override
-    public void onEnable() {
-        instance = this;
+    @Override public void onEnable() {
         saveDefaultConfig();
-        apiKey = getConfig().getString("openai.api_key");
-        geminiApiKey = getConfig().getString("gemini.api_key");
-        cooldownTime = getConfig().getLong("panda.cooldown", 5000);
-        defaultProvider = getConfig().getString("panda.model_selection.provider", "gemini").toLowerCase();
-        openaiModel = getConfig().getString("panda.model_selection.openai.model", "gpt-3.5-turbo");
-        geminiModel = getConfig().getString("panda.model_selection.gemini.model", "gemini-1.5-flash");
-        openaiApiUrl = getConfig().getString("openai.api_url", "https://api.openai.com/v1/chat/completions");
-        geminiApiUrl = getConfig().getString("gemini.api_url", "https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s");
-        proxyEnabled = getConfig().getBoolean("panda.proxy.enabled", false);
-        proxyHost = getConfig().getString("panda.proxy.host", "");
-        proxyPort = getConfig().getInt("panda.proxy.port", 80);
-        proxyUsername = getConfig().getString("panda.proxy.username", null);
-        proxyPassword = getConfig().getString("panda.proxy.password", null);
-        environmentAwarenessEnabled = getConfig().getBoolean("panda.environment_awareness.enabled", true);
-        commandAwarenessEnabled = getConfig().getBoolean("panda.command_awareness.enabled", true);
-        personalityTemplate = getConfig().getString("panda.personality", "You are a friendly Minecraft assistant, eager to help."); // Load the original template
-
-        pandaLogger = new PandaLogger(this);
-        pandaLogger.info("Panda Logger has started.");
-
-        commandAwareness = new CommandAwareness(this);
-
-        boolean openaiEnabled = true;
-        if (apiKey == null || apiKey.isEmpty()) {
-            getLogger().severe("OpenAI API key not configured! ChatGPT functionality will be disabled.");
-            if (defaultProvider.equals("openai")) {
-                getLogger().warning("The default model provider is set to OpenAI, but the API key is not configured. Please check your configuration.");
-                openaiEnabled = false;
-            }
-        }
-
-        boolean geminiEnabled = true;
-        if (geminiApiKey == null || geminiApiKey.isEmpty()) {
-            getLogger().severe("Gemini API key not configured! Gemini functionality will be disabled.");
-            if (defaultProvider.equals("gemini")) {
-                getLogger().warning("The default model provider is set to Gemini, but the API key is not configured. Please check your configuration.");
-                geminiEnabled = false;
-            }
-        }
-
-        if (!openaiEnabled && !geminiEnabled) {
-            getLogger().severe("No available AI model provider configuration. Plugin functionality will be limited.");
-        }
-
-        // Register commands
-        getCommand("panda").setExecutor(new PandaCommand(this));
-
-        // Register event listeners
-        getServer().getPluginManager().registerEvents(new ChatListener(this), this);
-
-        getLogger().info("ChatGPT Integration plugin has been enabled!");
-    }
-
-    @Override
-    public void onDisable() {
-        pandaLogger.info("Panda Logger has stopped.");
-        getLogger().info("ChatGPT Integration plugin has been disabled!");
-    }
-
-    public static ChatGPTIntegration getInstance() {
-        return instance;
-    }
-
-    public String getApiKey() {
-        return apiKey;
-    }
-
-    public String getGeminiApiKey() {
-        return geminiApiKey;
-    }
-
-    public long getCooldownTime() {
-        return cooldownTime;
-    }
-
-    public String getDefaultProvider() {
-        return defaultProvider;
-    }
-
-    public String getOpenaiModel() {
-        return openaiModel;
-    }
-
-    public String getGeminiModel() {
-        return geminiModel;
-    }
-
-    public Map<String, Long> getLastRequestTime() {
-        return lastRequestTime;
-    }
-
-    public ConversationHistory getConversationHistory(String playerName) {
-        return conversationHistory.computeIfAbsent(playerName, k -> new ConversationHistory(getConfig().getInt("panda.history_size", 5)));
-    }
-
-    public PandaLogger getPandaLogger() {
-        return pandaLogger;
-    }
-
-    public String getOpenaiApiUrl() {
-        return openaiApiUrl;
-    }
-
-    public String getGeminiApiUrl() {
-        return geminiApiUrl;
-    }
-
-    public boolean isProxyEnabled() {
-        return proxyEnabled;
-    }
-
-    public String getProxyHost() {
-        return proxyHost;
-    }
-
-    public int getProxyPort() {
-        return proxyPort;
-    }
-
-    public String getProxyUsername() {
-        return proxyUsername;
-    }
-
-    public String getProxyPassword() {
-        return proxyPassword;
-    }
-
-    public boolean isEnvironmentAwarenessEnabled() {
-        return environmentAwarenessEnabled;
-    }
-
-    public boolean isCommandAwarenessEnabled() {
-        return commandAwarenessEnabled;
-    }
-
-    public CommandAwareness getCommandAwareness() {
-        return commandAwareness;
-    }
-
-    // New method: Get processed Personality
-    public String getPersonality(Player player) {
-        String personality = personalityTemplate;
-        if (environmentAwarenessEnabled) {
-            String playerContext = cn.panda.pandagpt.util.PlayerContext.getContext(player);
-            personality = personality.replace("{{player_context}}", playerContext);
-        } else {
-            personality = personality.replace("{{player_context}}", ""); // If disabled, remove the placeholder
-        }
-        if (commandAwarenessEnabled) {
-            String serverCommandContext = commandAwareness.getContext(player);
-            personality = personality.replace("{{server_command_context}}", serverCommandContext);
-        } else {
-            personality = personality.replace("{{server_command_context}}", "");
-        }
-        return personality;
-    }
-
-    private String buildFullPrompt(Player player, ConversationHistory history, String currentPrompt) {
-        String personality = getPersonality(player);
-        StringBuilder fullPromptBuilder = new StringBuilder(personality + "\n\n");
-
-        for (ChatMessage chatMessage : history.getMessages()) {
-            fullPromptBuilder.append(chatMessage.getRole().equals("user") ? "User says: " : "Panda says: ").append(chatMessage.getContent()).append("\n");
-        }
-        fullPromptBuilder.append("The user's question is: ").append(currentPrompt);
-        return fullPromptBuilder.toString();
-    }
-
-    public static class ConversationHistory {
-        private final int maxSize;
-        private final java.util.LinkedList<ChatMessage> messages = new java.util.LinkedList<>();
-
-        public ConversationHistory(int maxSize) {
-            this.maxSize = maxSize;
-        }
-
-        public void addMessage(String role, String content) {
-            messages.add(new ChatMessage(role, content));
-            if (messages.size() > maxSize) {
-                messages.removeFirst();
-            }
-        }
-
-        public java.util.List<ChatMessage> getMessages() {
-            return messages;
+        try {
+            Files.createDirectories(getDataFolder().toPath());
+            if (!getDataFolder().toPath().resolve("knowledge.md").toFile().exists()) saveResource("knowledge.md", false);
+            loadService();
+            PandaCommand command = new PandaCommand(this);
+            Objects.requireNonNull(getCommand("panda")).setExecutor(command);
+            Objects.requireNonNull(getCommand("panda")).setTabCompleter(command);
+            Objects.requireNonNull(getCommand("pandaadmin")).setExecutor(command);
+            Objects.requireNonNull(getCommand("pandaadmin")).setTabCompleter(command);
+            getServer().getPluginManager().registerEvents(new ChatListener(this), this);
+            cleanup = getServer().getScheduler().runTaskTimer(this, () -> service.expire(), 1200, 1200);
+            getLogger().info("PandaGPT enabled: Paper 26.3 / Java 25; " + service.status());
+            if (settings.apiKey().isBlank()) getLogger().warning("Selected AI provider has no API key; questions will be rejected until configured.");
+        } catch (Exception e) {
+            getLogger().severe("Cannot enable PandaGPT: " + safeConfigurationError(e));
+            getServer().getPluginManager().disablePlugin(this);
         }
     }
 
-    public static class ChatMessage {
-        private final String role;
-        private final String content;
-
-        public ChatMessage(String role, String content) {
-            this.role = role;
-            this.content = content;
+    /** Validate and construct first; an invalid reload leaves the existing service intact. */
+    public void loadService() throws IOException {
+        Path path = getDataFolder().toPath().resolve("config.yml");
+        YamlConfiguration candidate = new YamlConfiguration();
+        try { candidate.load(path.toFile()); }
+        catch (org.bukkit.configuration.InvalidConfigurationException e) { throw new IOException("config.yml YAML is invalid"); }
+        int version = candidate.getInt("config_version", 1);
+        if (version > 2) throw new IllegalArgumentException("config_version is newer than this plugin supports");
+        if (version < 2) {
+            Path backup = getDataFolder().toPath().resolve("config-v1-backup.yml");
+            if (!Files.exists(backup)) Files.copy(path, backup);
+            if (!candidate.contains("panda.history_rounds"))
+                candidate.set("panda.history_rounds", Math.max(0, candidate.getInt("panda.history_size", 5) / 2));
+            candidate.set("panda.history_size", null);
+            candidate.set("config_version", 2);
+            getLogger().info("v1 config backed up. Existing models/proxy are retained; review them before enabling requests.");
         }
-
-        public String getRole() {
-            return role;
+        try (InputStream defaultsStream = Objects.requireNonNull(getResource("config.yml"));
+             Reader reader = new InputStreamReader(defaultsStream, StandardCharsets.UTF_8)) {
+            candidate.setDefaults(YamlConfiguration.loadConfiguration(reader));
         }
-
-        public String getContent() {
-            return content;
+        candidate.options().copyDefaults(true);
+        Settings next = Settings.load(candidate);
+        if (next.maxPromptChars() >= next.contextBudget())
+            throw new IllegalArgumentException("max_prompt_chars must be smaller than context_char_budget");
+        Path knowledgePath = getDataFolder().toPath().resolve("knowledge.md");
+        if (Files.size(knowledgePath) > 32768) throw new IllegalArgumentException("knowledge.md must be at most 32 KiB");
+        String knowledge = Files.readString(knowledgePath, StandardCharsets.UTF_8);
+        if (next.personality().length() + knowledge.length() + 1000 >= next.contextBudget())
+            throw new IllegalArgumentException("personality and knowledge.md leave insufficient context budget");
+        RecipeKnowledge recipes = new RecipeKnowledge(getServer());
+        PandaLogger log = new PandaLogger(getDataFolder().toPath(), next);
+        HttpAiProvider provider;
+        try { provider = new HttpAiProvider(next); }
+        catch (RuntimeException e) { log.close(); throw e; }
+        AssistantService replacement = new AssistantService(this, next, provider, log, recipes, knowledge);
+        try {
+            saveAtomically(candidate, path);
+        } catch (IOException e) {
+            replacement.close(); throw new IOException("Cannot save validated configuration");
         }
+        AssistantService previous = service;
+        service = replacement;
+        settings = next;
+        triggerPattern = Pattern.compile("^\\s*@?" + Pattern.quote(next.trigger())
+                + "(?:\\s+|[,:：，]\\s*|$)(.*)$", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE | Pattern.DOTALL);
+        if (previous != null) previous.close();
+    }
+
+    private static void saveAtomically(YamlConfiguration configuration, Path path) throws IOException {
+        Path temporary = Files.createTempFile(path.getParent(), "config-", ".tmp");
+        try {
+            configuration.save(temporary.toFile());
+            try { Files.move(temporary, path, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING); }
+            catch (AtomicMoveNotSupportedException e) { Files.move(temporary, path, StandardCopyOption.REPLACE_EXISTING); }
+        } finally { Files.deleteIfExists(temporary); }
+    }
+    public static String safeConfigurationError(Exception e) {
+        // Do not expose URI/header/key-bearing low-level exception messages.
+        return e instanceof IllegalArgumentException || e instanceof IOException ? e.getMessage() : e.getClass().getSimpleName();
+    }
+    public Settings settings() { return settings; }
+    public Pattern triggerPattern() { return triggerPattern; }
+    public AssistantService service() { return service; }
+    @Override public void onDisable() {
+        if (cleanup != null) cleanup.cancel();
+        if (service != null) { service.close(); service = null; }
     }
 }
