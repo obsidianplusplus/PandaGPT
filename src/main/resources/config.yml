@@ -31,6 +31,12 @@ panda:
     angle_tolerance: 3
     max_debug_particles: 64
     save_images: true # Latest files per UUID in captures/<UUID>/; no public HTTP endpoint.
+    textures:
+      enabled: true # True PNG texels; no silent map-color replacement for missing models.
+      packs:
+        - 'assets/vanilla-26.3.zip' # Relative to plugins/PandaGPT; folders, ZIPs or client JARs.
+        # - 'assets/server-pack.zip' # Later packs override earlier packs.
+      cache_mib: 64 # Decoded PNG pixel budget. Animated PNGs use the first declared frame.
   model_selection:
     provider: 'gemini'
     openai:

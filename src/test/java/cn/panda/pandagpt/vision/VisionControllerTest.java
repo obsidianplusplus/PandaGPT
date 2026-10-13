@@ -26,6 +26,7 @@ class VisionControllerTest {
         var config = TestSupport.config();
         config.set("panda.vision.width", 16); config.set("panda.vision.height", 16);
         config.set("panda.vision.rays_per_tick", 16); config.set("panda.vision.time_budget_ms", 5);
+        config.set("panda.vision.textures.enabled", false); // These lifecycle tests exercise the explicit map-color mode.
         Settings settings = Settings.load(config);
         when(plugin.settings()).thenReturn(settings); when(plugin.getServer()).thenReturn(server);
         when(player.getUniqueId()).thenReturn(UUID.randomUUID()); when(player.getWorld()).thenReturn(world);
@@ -36,6 +37,19 @@ class VisionControllerTest {
         when(player.getClientViewDistance()).thenReturn(8); when(player.getSendViewDistance()).thenReturn(8);
         when(player.getSentChunkKeys()).thenReturn(Set.of()); // Every ray terminates unknown before world reads.
         return new Fixture(plugin, player, world, settings);
+    }
+    @Test void defaultTextureModeRefusesCaptureWhenAssetsAreMissing() {
+        Fixture f = fixture();
+        var config = TestSupport.config();
+        config.set("panda.vision.textures.enabled", true);
+        var settings = Settings.load(config);
+        try (var vision = new VisionController(f.plugin, settings.vision(), mock(AssistantService.class), folder)) {
+            vision.capture(f.player, null, false);
+            assertTrue(vision.status().contains("captures=0"));
+            assertTrue(vision.status().contains("assets_present=false"));
+            verify(f.player, never()).getEyeLocation();
+            verify(f.world, never()).getBlockAt(anyInt(), anyInt(), anyInt());
+        }
     }
     @Test void captureNeedsPermissionAndMovementCancelsTheJob() {
         Fixture f = fixture();

@@ -2,6 +2,7 @@ package cn.panda.pandagpt.vision;
 
 import cn.panda.pandagpt.ChatGPTIntegration;
 import cn.panda.pandagpt.service.AssistantService;
+import cn.panda.pandagpt.vision.texture.*;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.World;
@@ -40,17 +41,28 @@ public final class VisionController implements AutoCloseable {
     private final Map<UUID, Job> jobs = new LinkedHashMap<>();
     private final Map<UUID, Long> lastStarted = new HashMap<>();
     private final ThreadPoolExecutor renderer;
+    private final List<Path> texturePaths;
+    private volatile BlockTextures textures;
     private volatile boolean closed;
     private long tick;
 
     public VisionController(ChatGPTIntegration plugin, VisionSettings settings, AssistantService assistant, Path dataFolder) {
         this.plugin = plugin; this.settings = settings; this.assistant = assistant; folder = dataFolder.resolve("captures");
+        texturePaths = settings.texturePacks().stream().map(Path::of)
+                .map(path -> path.isAbsolute() ? path.normalize() : dataFolder.resolve(path).normalize()).toList();
         renderer = new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS, new ArrayBlockingQueue<>(settings.maxCaptures()),
-                Thread.ofPlatform().daemon().name("pandagpt-vision-", 0).factory(), new ThreadPoolExecutor.AbortPolicy());
+                Thread.ofPlatform().daemon().name("pandagpt-vision-", 0).factory(), new ThreadPoolExecutor.AbortPolicy()) {
+            @Override protected void terminated() {
+                if (VisionController.this.textures != null) VisionController.this.textures.close();
+            }
+        };
     }
     public void capture(Player player, String question, boolean debug) {
         if (closed || !player.isOnline()) return;
         if (!settings.enabled()) { tell(player, "视觉重建未开启。"); return; }
+        if (settings.textured() && texturePaths.stream().anyMatch(path -> !Files.isReadable(path))) {
+            tell(player, "缺少纹理资源。请管理员运行 tools/download_vanilla_assets.py，或配置 textures.packs 后重载。"); return;
+        }
         if (!player.hasPermission("pandagpt.use") || !player.hasPermission("pandagpt.vision")) {
             tell(player, "你没有使用视觉重建的权限。"); return;
         }
@@ -131,13 +143,16 @@ public final class VisionController implements AutoCloseable {
                 job.range, job.startedAt, System.currentTimeMillis(), job.samples);
         job.rendering = renderer.submit(() -> {
             try {
-                SceneRenderer.Rendered image = SceneRenderer.render(frame);
+                if (settings.textured() && textures == null)
+                    textures = new BlockTextures(new ResourcePack(texturePaths, settings.textureCacheMiB()));
+                SceneRenderer.Rendered image = SceneRenderer.render(frame, textures);
                 if (job.cancelled || closed) return;
                 if (settings.saveImages()) save(job, image);
                 if (job.cancelled || closed) return;
                 plugin.getServer().getScheduler().runTask(plugin, () -> complete(job, image));
             } catch (IOException | RuntimeException e) {
                 if (job.cancelled || closed) return;
+                plugin.getLogger().warning("Vision render/save failed: " + e.getClass().getSimpleName() + ": " + e.getMessage());
                 try {
                     plugin.getServer().getScheduler().runTask(plugin, () -> {
                         if (jobs.get(job.player) != job) return;
@@ -189,7 +204,10 @@ public final class VisionController implements AutoCloseable {
         renderer.purge();
     }
     public void clearAll() { for (UUID id : List.copyOf(jobs.keySet())) cancel(id); }
-    public String status() { return "vision=" + settings.enabled() + ", captures=" + jobs.size() + ", size=" + settings.width() + "x" + settings.height(); }
+    public String status() {
+        return "vision=" + settings.enabled() + ", captures=" + jobs.size() + ", size=" + settings.width() + "x" + settings.height()
+                + ", textures=" + settings.textured() + ", assets_present=" + texturePaths.stream().allMatch(Files::isReadable);
+    }
     private static void tell(Player player, String text) {
         player.sendMessage(Component.text("[Panda Vision] " + text, NamedTextColor.AQUA));
     }

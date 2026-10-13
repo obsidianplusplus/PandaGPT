@@ -30,9 +30,19 @@ public final class BlockRaycaster {
             // Only the hit within this traversed cell counts; partial shapes can be missed.
             if (distance + 1e-6 < entry || distance - 1e-6 > exit) return true;
             var data = block.getBlockData();
+            var biome = block.getBiome();
+            int light = block.getLightLevel();
+            var face = hit.getHitBlockFace();
+            if (face != null) {
+                int nx = x + face.getModX(), ny = y + face.getModY(), nz = z + face.getModZ();
+                if (ny >= world.getMinHeight() && ny < world.getMaxHeight()
+                        && sentChunks.contains(chunkKey(nx >> 4, nz >> 4)) && world.isChunkLoaded(nx >> 4, nz >> 4))
+                    light = Math.max(light, world.getBlockAt(nx, ny, nz).getLightLevel());
+            }
             sample[0] = new RaySample(RaySample.Kind.HIT, distance, block.getType().name(), data.getAsString(),
                     hit.getHitBlockFace() == null ? "UNKNOWN" : hit.getHitBlockFace().name(), data.getMapColor().asRGB(),
-                    block.getLightLevel(), position, x, y, z);
+                    light, position, x, y, z, new RaySample.Tint(block.getTemperature(), block.getHumidity(),
+                    biome == null ? "minecraft:plains" : biome.getKey().toString()));
             return false;
         });
         return sample[0];

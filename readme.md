@@ -88,11 +88,40 @@ GitHub Actions 会以 Java 25 运行测试并生成可下载的插件构建产�
 
 自动测试覆盖角色请求格式、配置生效、完整问答历史、动作开关、确认与重放、权限撤销、超时、错误响应、离线与清除后的旧回调、会话隔离及队列上限。部署前仍应在独立的 Paper 26.3 测试服上核对插件组合、API 账户和动作白名单。
 
-本版提供方块射线重建；客户端真实截图、实体/纹理渲染和透明层合成仍是后续方向。知识检索目前读取本地小文档，后续可扩展分段检索；不包含自动公告、主动监测或长期记忆摘要。
+本版提供带真实资源包纹理的方块射线重建；客户端真实截图、实体渲染和多层透明合成仍是后续方向。知识检索目前读取本地小文档，后续可扩展分段检索；不包含自动公告、主动监测或长期记忆摘要。
 
 ## 射线视觉重建与粒子反馈
 
-无需客户端模组即可生成第一人称方块几何与材质类别图。它是服务器数据生成的图，不是客户端截图：
+无需客户端模组即可生成带真实 PNG 纹理的第一人称方块图、深度图与材质类别图。它是服务器数据生成的图，不是客户端截图。
+
+### 准备真实纹理
+
+默认开启纹理模式。先从本项目取得 `tools/download_vanilla_assets.py`，在服务器工作目录执行：
+
+```bash
+python3 tools/download_vanilla_assets.py --version 26.3 --output plugins/PandaGPT/assets/vanilla-26.3.zip
+```
+
+脚本从 Mojang 官方版本清单获取客户端，校验版本文件和客户端的 SHA-1 与客户端大小，只提取 blockstates、方块模型、PNG、动画元数据与生物群系色表；不会执行客户端代码。插件 JAR 不打包游戏资源。下载完成后执行 `/pandaadmin reload`。
+
+也可直接读取本地 26.3 客户端 JAR、资源包 ZIP 或解压后的资源包目录。在 `config.yml` 配置相对插件目录的路径（也支持绝对路径）：
+
+```yaml
+panda:
+  vision:
+    textures:
+      enabled: true
+      packs:
+        - 'assets/vanilla-26.3.zip'
+        - 'assets/server-pack.zip'
+      cache_mib: 64
+```
+
+后面的包覆盖前面的同路径文件，基础包提供自定义包未覆盖的资源。只配置实际存在的包。应使用与玩家相同版本、同一套资源包；服务器无法自动读取玩家私人资源包。没有资源时拒绝采样并提示安装，避免把基础色当成纹理；仅在明确设置 `textures.enabled: false` 时使用旧地图色模式。
+
+渲染器读取方块状态 variants/multipart、模型父级与纹理引用，用命中面的三维位置计算 UV，处理面 UV 旋转、模型旋转与 uvlock，然后从对应 PNG 取样。楼梯、半砖、原木轴向和熔炉朝向使用各自模型。草/树叶读取颜色表，水使用真实 still 纹理。模型与图片读取在后台运行，图片缓存和文件大小受限。
+
+### 采样与输出
 
 ```text
 /panda vision snapshot
@@ -108,7 +137,8 @@ flowchart TD
     A["眼睛位置、朝向与配置视场"] --> B["透视射线网格"]
     B --> C["已发送且加载区块中的方块碰撞"]
     C --> D["最近命中：距离、表面、材质"]
-    D --> E["后台生成 PNG 与元数据"]
+    D --> H["方块状态、模型 UV 与资源包 PNG"]
+    H --> E["后台生成 PNG 与元数据"]
     D --> F["可选：玩家私有命中点粒子"]
     E --> G["本地文件或视觉模型问题"]
 ```
@@ -123,18 +153,28 @@ flowchart TD
 
 | 文件 | 内容 |
 |---|---|
-| color.png | 地图基础色、表面方向和方块光照构成的简化场景图 |
+| color.png | 真实 PNG 纹理、模型 UV、近似生物群系染色和表面光照构成的场景图 |
 | depth.png | 射线距离灰度：近处亮，远处暗；无效像素需结合 mask 判断 |
 | labels.png | 材质类别颜色，调色板在 metadata.json |
-| metadata.json | 相机参数、采样起止时间、像素距离、材质 ID、有效性 mask 和说明 |
+| metadata.json | 相机参数、像素距离、材质 ID、有效性 mask、纹理来源/解析状态与透明度 |
 
 灰色棋盘格表示不可访问数据，蓝色表示范围内没有射线命中，不能把蓝色当成已确认的天空。所有图与元数据使用同一组像素。图中距眼睛的射线距离不等同于相机前向 Z 深度。
 
-**还原边界：**只重建服务器方块碰撞和基础色，不含实体模型、纹理、资源包、光影、HUD、手持物品或第三人称相机。玻璃/水暂按第一层命中处理，花草等视觉模型也可能与碰撞形状不同。服务端不能自动读取客户端真实 FOV、窗口比例、视角摇晃或客户端假方块，请按实际设置调整参数。区块“已发送”不能证明客户端已完成渲染；世界也可能在分 tick 采样期间变化。需要像素级真实画面时应接入客户端截图。
+缺失或不支持的模型/纹理显示紫黑棋盘格，`texture_mask=2`；成功从 PNG 取样为 1，未使用纹理为 0。半透明纹理按其 alpha 叠在灰色未知背景上，不伪造后方场景，元数据记录 `texture_alpha` 和部分透明像素数。
+
+**还原边界：**重建服务器方块碰撞与资源包纹理，不含实体模型、动态箱子等专用渲染器、光影、HUD、手持物品或第三人称相机。玻璃/水仍只检测第一层命中，花草等视觉模型可能与碰撞形状不同。动画取首个声明帧，随机变体按坐标稳定选取，不保证与客户端相同；染色和光照为近似值，不支持 OptiFine/CTM 等扩展。服务端不能自动读取客户端真实 FOV、窗口比例、视角摇晃或客户端假方块，请按实际设置调整参数。区块“已发送”不能证明客户端已完成渲染；世界也可能在分 tick 采样期间变化。需要像素级真实画面时应接入客户端截图。
+
+真实资源测试可执行 `mvn -Dpandagpt.test.assets=/绝对路径/vanilla-26.3.zip clean verify`；不提供资源路径时仅跳过官方资源测试，运行合成纹理和其他回归测试。CI 会下载并校验官方资源后测试。`OfficialAssetsTest` 还生成 `target/texture-preview.png`：这是人工构造方块场景的射线验证图，不是 Minecraft 服务器截图。
+
+![官方 PNG 纹理的人工场景验证图，非服务器截图](docs/texture-preview.png)
 
 权限 `pandagpt.vision` 和 `pandagpt.vision.debug` 默认均为 OP。文件留在服务器；只有 vision ask 才发送图片给所选模型。关闭 save_images 可只在内存中重建/提问，关闭 vision.enabled 停用整个模块。
 
 官方参考：
+
+- [Mojang 官方版本与客户端下载清单](https://piston-meta.mojang.com/mc/game/version_manifest_v2.json)
+- [BlueMap 资源包加载方法](https://bluemap.bluecolored.de/wiki/customization/ResourcePacks.html)
+- [block-model-renderer 模型与资源包渲染示例](https://github.com/ewanhowell5195/block-model-renderer)
 - [Paper 运行要求](https://docs.papermc.io/paper/getting-started/)
 - [Paper 26.3 项目配置](https://docs.papermc.io/paper/dev/project-setup/)
 - [Paper 线程调度](https://docs.papermc.io/paper/dev/scheduler/)
