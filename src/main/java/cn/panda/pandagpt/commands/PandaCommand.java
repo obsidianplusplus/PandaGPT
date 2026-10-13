@@ -17,8 +17,8 @@ public final class PandaCommand implements CommandExecutor, TabCompleter {
             if (!sender.hasPermission("pandagpt.admin")) return true;
             String action = args.length == 1 ? args[0].toLowerCase(Locale.ROOT) : "";
             switch (action) {
-                case "status" -> sender.sendMessage(Component.text(plugin.service().status()));
-                case "clearchat" -> { plugin.service().clearAll(); sender.sendMessage(Component.text("Panda 会话和待确认动作已清除。")); }
+                case "status" -> sender.sendMessage(Component.text(plugin.service().status() + "; " + plugin.vision().status()));
+                case "clearchat" -> { plugin.vision().clearAll(); plugin.service().clearAll(); sender.sendMessage(Component.text("Panda 会话、视觉采样和待确认动作已清除。")); }
                 case "reload" -> {
                     try { plugin.loadService(); sender.sendMessage(Component.text("Panda 配置已重载。", NamedTextColor.GREEN)); }
                     catch (Exception e) { sender.sendMessage(Component.text("重载失败，仍使用原配置：" + ChatGPTIntegration.safeConfigurationError(e), NamedTextColor.RED)); }
@@ -31,10 +31,11 @@ public final class PandaCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(Component.text("提问仅限玩家；控制台可使用 /pandaadmin。")); return true;
         }
         if (!player.hasPermission("pandagpt.use")) return true;
-        if (args.length == 0) { player.sendMessage(Component.text("/panda <问题|clear|confirm 确认码|cancel>")); return true; }
+        if (args.length == 0) { player.sendMessage(Component.text("/panda <问题|vision|clear|confirm 确认码|cancel>")); return true; }
         switch (args[0].toLowerCase(Locale.ROOT)) {
             case "clear" -> {
                 if (args.length != 1) break;
+                plugin.vision().cancel(player.getUniqueId());
                 plugin.service().clear(player.getUniqueId());
                 player.sendMessage(Component.text("对话、当前请求和待确认动作已清除。")); return true;
             }
@@ -48,6 +49,18 @@ public final class PandaCommand implements CommandExecutor, TabCompleter {
                 else player.sendMessage(Component.text("/panda confirm <确认码>"));
                 return true;
             }
+            case "vision" -> {
+                if (args.length >= 3 && args[1].equalsIgnoreCase("ask"))
+                    plugin.vision().capture(player, String.join(" ", Arrays.copyOfRange(args, 2, args.length)), false);
+                else if (args.length == 2 && args[1].equalsIgnoreCase("snapshot"))
+                    plugin.vision().capture(player, null, false);
+                else if (args.length == 3 && args[1].equalsIgnoreCase("snapshot") && args[2].equalsIgnoreCase("debug"))
+                    plugin.vision().capture(player, null, true);
+                else if (args.length == 2 && args[1].equalsIgnoreCase("cancel")) {
+                    plugin.vision().cancel(player.getUniqueId()); player.sendMessage(Component.text("视觉采样已取消。"));
+                } else player.sendMessage(Component.text("/panda vision <snapshot [debug]|ask 问题|cancel>"));
+                return true;
+            }
             case "ask" -> {
                 plugin.service().ask(player, String.join(" ", Arrays.copyOfRange(args, 1, args.length))); return true;
             }
@@ -57,10 +70,12 @@ public final class PandaCommand implements CommandExecutor, TabCompleter {
         return true;
     }
     @Override public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        if (args.length == 2 && args[0].equalsIgnoreCase("vision"))
+            return List.of("snapshot", "ask", "cancel").stream().filter(s -> s.startsWith(args[1].toLowerCase(Locale.ROOT))).toList();
         if (args.length != 1) return List.of();
         List<String> options = command.getName().equalsIgnoreCase("pandaadmin")
                 ? (sender.hasPermission("pandagpt.admin") ? List.of("reload", "status", "clearchat") : List.of())
-                : List.of("ask", "clear", "confirm", "cancel");
+                : List.of("ask", "vision", "clear", "confirm", "cancel");
         return options.stream().filter(s -> s.startsWith(args[0].toLowerCase(Locale.ROOT))).toList();
     }
 }

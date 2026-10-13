@@ -94,8 +94,17 @@ public final class HttpAiProvider implements AiProvider {
             body.addProperty("max_completion_tokens", settings.maxOutputTokens());
             JsonArray messages = new JsonArray();
             JsonObject system = new JsonObject(); system.addProperty("role", "system"); system.addProperty("content", request.systemPrompt()); messages.add(system);
-            for (Message m : request.messages()) {
-                JsonObject message = new JsonObject(); message.addProperty("role", m.role()); message.addProperty("content", m.content()); messages.add(message);
+            for (int i = 0; i < request.messages().size(); i++) {
+                Message m = request.messages().get(i);
+                JsonObject message = new JsonObject(); message.addProperty("role", m.role());
+                if (request.image() != null && i == request.messages().size() - 1 && m.role().equals("user")) {
+                    JsonArray parts = new JsonArray();
+                    JsonObject text = new JsonObject(); text.addProperty("type", "text"); text.addProperty("text", m.content()); parts.add(text);
+                    JsonObject url = new JsonObject(); url.addProperty("url", "data:" + request.image().mediaType() + ";base64," + request.image().base64());
+                    JsonObject image = new JsonObject(); image.addProperty("type", "image_url"); image.add("image_url", url); parts.add(image);
+                    message.add("content", parts);
+                } else message.addProperty("content", m.content());
+                messages.add(message);
             }
             body.add("messages", messages);
             if (request.actionsEnabled()) {
@@ -110,9 +119,15 @@ public final class HttpAiProvider implements AiProvider {
         } else {
             JsonObject system = new JsonObject(); system.add("parts", textParts(request.systemPrompt())); body.add("systemInstruction", system);
             JsonArray contents = new JsonArray();
-            for (Message m : request.messages()) {
+            for (int i = 0; i < request.messages().size(); i++) {
+                Message m = request.messages().get(i);
                 JsonObject content = new JsonObject(); content.addProperty("role", m.role().equals("assistant") ? "model" : "user");
-                content.add("parts", textParts(m.content())); contents.add(content);
+                JsonArray parts = textParts(m.content());
+                if (request.image() != null && i == request.messages().size() - 1 && m.role().equals("user")) {
+                    JsonObject data = new JsonObject(); data.addProperty("mimeType", request.image().mediaType()); data.addProperty("data", request.image().base64());
+                    JsonObject image = new JsonObject(); image.add("inlineData", data); parts.add(image);
+                }
+                content.add("parts", parts); contents.add(content);
             }
             body.add("contents", contents);
             JsonObject generation = new JsonObject(); generation.addProperty("maxOutputTokens", settings.maxOutputTokens()); body.add("generationConfig", generation);

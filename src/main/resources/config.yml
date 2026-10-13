@@ -16,6 +16,21 @@ panda:
   max_prompt_chars: 2000
   context_char_budget: 16000 # Character budget, not an exact tokenizer count.
   max_output_tokens: 1000
+  vision:
+    enabled: true # Captures happen only via an explicit /panda vision command.
+    width: 160
+    height: 90
+    vertical_fov: 70 # Configured vertical FOV; server cannot read the real client FOV.
+    max_distance: 96 # Also clipped by reported/sending view distance and sent+loaded chunk membership.
+    rays_per_tick: 256 # Global cap shared across captures.
+    time_budget_ms: 2 # Checked between rays; a single ray cannot be preempted.
+    max_concurrent_captures: 2
+    timeout_ticks: 200
+    cooldown_seconds: 10
+    movement_tolerance: 0.35
+    angle_tolerance: 3
+    max_debug_particles: 64
+    save_images: true # Latest files per UUID in captures/<UUID>/; no public HTTP endpoint.
   model_selection:
     provider: 'gemini'
     openai:

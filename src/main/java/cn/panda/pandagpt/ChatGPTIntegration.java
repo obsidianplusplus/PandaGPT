@@ -7,6 +7,7 @@ import cn.panda.pandagpt.config.Settings;
 import cn.panda.pandagpt.listeners.ChatListener;
 import cn.panda.pandagpt.service.AssistantService;
 import cn.panda.pandagpt.util.PandaLogger;
+import cn.panda.pandagpt.vision.VisionController;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
@@ -20,7 +21,9 @@ public final class ChatGPTIntegration extends JavaPlugin {
     private volatile Settings settings;
     private volatile Pattern triggerPattern;
     private AssistantService service;
+    private VisionController vision;
     private BukkitTask cleanup;
+    private BukkitTask visionTick;
 
     @Override public void onEnable() {
         saveDefaultConfig();
@@ -35,6 +38,7 @@ public final class ChatGPTIntegration extends JavaPlugin {
             Objects.requireNonNull(getCommand("pandaadmin")).setTabCompleter(command);
             getServer().getPluginManager().registerEvents(new ChatListener(this), this);
             cleanup = getServer().getScheduler().runTaskTimer(this, () -> service.expire(), 1200, 1200);
+            visionTick = getServer().getScheduler().runTaskTimer(this, () -> vision.tick(), 1, 1);
             getLogger().info("PandaGPT enabled: Paper 26.3 / Java 25; " + service.status());
             if (settings.apiKey().isBlank()) getLogger().warning("Selected AI provider has no API key; questions will be rejected until configured.");
         } catch (Exception e) {
@@ -79,16 +83,20 @@ public final class ChatGPTIntegration extends JavaPlugin {
         try { provider = new HttpAiProvider(next); }
         catch (RuntimeException e) { log.close(); throw e; }
         AssistantService replacement = new AssistantService(this, next, provider, log, recipes, knowledge);
+        VisionController nextVision = new VisionController(this, next.vision(), replacement, getDataFolder().toPath());
         try {
             saveAtomically(candidate, path);
         } catch (IOException e) {
-            replacement.close(); throw new IOException("Cannot save validated configuration");
+            nextVision.close(); replacement.close(); throw new IOException("Cannot save validated configuration");
         }
         AssistantService previous = service;
+        VisionController previousVision = vision;
         service = replacement;
+        vision = nextVision;
         settings = next;
         triggerPattern = Pattern.compile("^\\s*@?" + Pattern.quote(next.trigger())
                 + "(?:\\s+|[,:：，]\\s*|$)(.*)$", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE | Pattern.DOTALL);
+        if (previousVision != null) previousVision.close();
         if (previous != null) previous.close();
     }
 
@@ -107,8 +115,11 @@ public final class ChatGPTIntegration extends JavaPlugin {
     public Settings settings() { return settings; }
     public Pattern triggerPattern() { return triggerPattern; }
     public AssistantService service() { return service; }
+    public VisionController vision() { return vision; }
     @Override public void onDisable() {
         if (cleanup != null) cleanup.cancel();
+        if (visionTick != null) visionTick.cancel();
+        if (vision != null) { vision.close(); vision = null; }
         if (service != null) { service.close(); service = null; }
     }
 }

@@ -26,6 +26,7 @@ public final class ChatListener implements Listener {
         } catch (org.bukkit.plugin.IllegalPluginAccessException ignored) { /* Server is stopping. */ }
     }
     @EventHandler public void onQuit(PlayerQuitEvent event) {
+        plugin.vision().cancel(event.getPlayer().getUniqueId());
         plugin.service().clear(event.getPlayer().getUniqueId());
     }
 }

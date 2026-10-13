@@ -7,7 +7,7 @@ website: https://github.com/obsidianplusplus/PandaGPT
 commands:
   panda:
     description: Ask Panda, clear your conversation, or confirm a proposed action.
-    usage: /panda <question|clear|confirm code|cancel>
+    usage: /panda <question|vision|clear|confirm code|cancel>
     permission: pandagpt.use
   pandaadmin:
     description: Reload configuration, inspect status, or clear all sessions.
@@ -22,4 +22,10 @@ permissions:
     default: op
   pandagpt.admin:
     description: Allows managing PandaGPT.
+    default: op
+  pandagpt.vision:
+    description: Allows generating first-person raycast images and asking a vision model.
+    default: op
+  pandagpt.vision.debug:
+    description: Allows showing computed ray hit points as private particles.
     default: op

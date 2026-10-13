@@ -6,6 +6,7 @@ import java.time.Duration;
 import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
+import cn.panda.pandagpt.vision.VisionSettings;
 
 /** Immutable configuration: workers never read Bukkit configuration. */
 public record Settings(String provider, String apiKey, String apiUrl, String model, String personality,
@@ -16,7 +17,7 @@ public record Settings(String provider, String apiKey, String apiUrl, String mod
                        int radius, int maxEntities, int maxRecipes, boolean commandAwareness,
                        boolean allowExecution, int maxActions, Duration confirmationTtl,
                        Set<String> allowedCommands, Set<String> blockedCommands, Proxy proxy,
-                       boolean loggingEnabled, boolean logConversations, int logBytes, int logFiles) {
+                       boolean loggingEnabled, boolean logConversations, int logBytes, int logFiles, VisionSettings vision) {
     public record Proxy(boolean enabled, String host, int port, String username, String password) {
         @Override public String toString() { return "Proxy[enabled=" + enabled + "]"; }
     }
@@ -63,7 +64,8 @@ public record Settings(String provider, String apiKey, String apiUrl, String mod
                 number(c, "panda.command_awareness.max_executions", 3, 1, 5), seconds(c, "panda.command_awareness.confirmation_ttl_seconds", 60, 5, 300),
                 roots(c, "panda.command_awareness.allowed_commands"), roots(c, "panda.command_awareness.blocked_commands"), proxy,
                 c.getBoolean("panda.logging.enabled", true), c.getBoolean("panda.logging.conversations", false),
-                number(c, "panda.logging.max_bytes", 1048576, 1024, 16777216), number(c, "panda.logging.files", 3, 1, 20));
+                number(c, "panda.logging.max_bytes", 1048576, 1024, 16777216), number(c, "panda.logging.files", 3, 1, 20),
+                VisionSettings.load(c));
     }
     private static int number(FileConfiguration c, String path, int fallback, int min, int max) {
         Object value = c.get(path);

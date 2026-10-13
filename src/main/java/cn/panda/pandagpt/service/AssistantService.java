@@ -59,6 +59,9 @@ public final class AssistantService implements AutoCloseable {
                 new ThreadPoolExecutor.AbortPolicy());
     }
     public void ask(Player player, String question) {
+        ask(player, question, "", null);
+    }
+    public void ask(Player player, String question, String visualContext, AiRequest.Image image) {
         if (closed || !player.isOnline()) return;
         if (!player.hasPermission("pandagpt.use")) { tell(player, "你没有使用 Panda 的权限。"); return; }
         if (question.isBlank()) { tell(player, "请输入问题。"); return; }
@@ -89,13 +92,14 @@ public final class AssistantService implements AutoCloseable {
             logger.event(id, "context_error type=" + e.getClass().getSimpleName());
             tell(player, "游戏状态采集失败，请稍后再试。"); return;
         }
-        String system = buildSystem(settings, knowledge, environment, commands);
+        String system = buildSystem(settings, knowledge, environment, commands)
+                + (visualContext.isEmpty() ? "" : "\nRaycast visual reconstruction:\n" + visualContext);
         int messageBudget = settings.contextBudget() - system.length();
         if (question.length() > messageBudget) {
             tell(player, "上下文超过预算，请管理员缩短 personality/knowledge 或提高 context_char_budget。"); return;
         }
         boolean canAct = settings.commandAwareness() && settings.allowExecution() && player.hasPermission("pandagpt.actions");
-        AiRequest request = new AiRequest(system, session.history.snapshot(question, messageBudget), canAct);
+        AiRequest request = new AiRequest(system, session.history.snapshot(question, messageBudget), canAct, image);
         UUID requestId = UUID.randomUUID();
         session.requestId = requestId;
         Session accepted = session;
@@ -154,6 +158,8 @@ public final class AssistantService implements AutoCloseable {
                 + "\nCommand context:\n" + commands;
     }
     public void confirm(Player player, String code) { actions.confirm(player, code); }
+    public boolean busy(UUID id) { Session session = sessions.get(id); return session != null && session.requestId != null; }
+    public boolean configured() { return !settings.apiKey().isBlank(); }
     public void cancelActions(UUID id) { actions.cancel(id); }
     public void clear(UUID id) {
         Session session = sessions.remove(id);

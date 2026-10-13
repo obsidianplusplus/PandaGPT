@@ -13,6 +13,21 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 class HttpAiProviderTest {
+    @Test void imageIsAttachedOnlyToTheCurrentUserTurnInBothProtocols() {
+        var request = new AiRequest("system", List.of(new Message("user", "old"), new Message("assistant", "answer"),
+                new Message("user", "look")), false, new AiRequest.Image("image/png", "dGVzdA=="));
+        var config = TestSupport.config(); config.set("panda.model_selection.provider", "openai");
+        var openai = JsonParser.parseString(HttpAiProvider.buildBody(Settings.load(config), request)).getAsJsonObject();
+        var messages = openai.getAsJsonArray("messages");
+        assertTrue(messages.get(1).getAsJsonObject().get("content").isJsonPrimitive());
+        assertEquals("data:image/png;base64,dGVzdA==", messages.get(3).getAsJsonObject().getAsJsonArray("content")
+                .get(1).getAsJsonObject().getAsJsonObject("image_url").get("url").getAsString());
+        var gemini = JsonParser.parseString(HttpAiProvider.buildBody(TestSupport.settings(), request)).getAsJsonObject();
+        var contents = gemini.getAsJsonArray("contents");
+        assertEquals(1, contents.get(0).getAsJsonObject().getAsJsonArray("parts").size());
+        assertEquals("image/png", contents.get(2).getAsJsonObject().getAsJsonArray("parts").get(1)
+                .getAsJsonObject().getAsJsonObject("inlineData").get("mimeType").getAsString());
+    }
     @Test void nativeRolesAndConfiguredModelAreTransmitted() {
         var config = TestSupport.config(); config.set("panda.model_selection.provider", "openai");
         config.set("panda.model_selection.openai.model", "my-model");
