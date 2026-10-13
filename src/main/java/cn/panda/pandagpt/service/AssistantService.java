@@ -17,6 +17,8 @@ import java.util.concurrent.*;
 
 /** Single entry point for chat and /panda. Session state is confined to the server thread. */
 public final class AssistantService implements AutoCloseable {
+    public record VisualQuery(List<Integer> ids, java.util.function.BooleanSupplier valid,
+                              java.util.function.IntPredicate select) { public VisualQuery { ids = List.copyOf(ids); } }
     private static final class Session {
         final Conversation history;
         long lastAccepted = Long.MIN_VALUE;
@@ -62,6 +64,9 @@ public final class AssistantService implements AutoCloseable {
         ask(player, question, "", null);
     }
     public void ask(Player player, String question, String visualContext, AiRequest.Image image) {
+        ask(player, question, visualContext, image, null);
+    }
+    public void ask(Player player, String question, String visualContext, AiRequest.Image image, VisualQuery visual) {
         if (closed || !player.isOnline()) return;
         if (!player.hasPermission("pandagpt.use")) { tell(player, "你没有使用 Panda 的权限。"); return; }
         if (question.isBlank()) { tell(player, "请输入问题。"); return; }
@@ -87,19 +92,27 @@ public final class AssistantService implements AutoCloseable {
         String environment, commands;
         try {
             environment = contextSource.apply(player, question);
+            if (plugin.perception() != null) environment += "\n" + plugin.perception().context(player, visual == null);
             commands = CommandAwareness.context(player, settings);
         } catch (RuntimeException e) {
             logger.event(id, "context_error type=" + e.getClass().getSimpleName());
             tell(player, "游戏状态采集失败，请稍后再试。"); return;
         }
-        String system = buildSystem(settings, knowledge, environment, commands)
-                + (visualContext.isEmpty() ? "" : "\nRaycast visual reconstruction:\n" + visualContext);
+        String system = buildSystem(settings, knowledge, environment, commands);
+        if (!visualContext.isEmpty()) {
+            int available = Math.max(0, settings.contextBudget() - system.length() - question.length() - 300);
+            String evidence = visualContext.length() <= available ? visualContext : visualContext.substring(0, available)
+                    + "\n[Remaining observation omitted to fit context; do not infer omitted geometry/entities.]";
+            system += "\nRaycast reconstruction is sampled evidence, not a client screenshot. Region IDs are capture-local. "
+                    + "Local clearance does not prove a full route or building seal. Unknown areas remain unknown.\n" + evidence;
+        }
         int messageBudget = settings.contextBudget() - system.length();
         if (question.length() > messageBudget) {
             tell(player, "上下文超过预算，请管理员缩短 personality/knowledge 或提高 context_char_budget。"); return;
         }
         boolean canAct = settings.commandAwareness() && settings.allowExecution() && player.hasPermission("pandagpt.actions");
-        AiRequest request = new AiRequest(system, session.history.snapshot(question, messageBudget), canAct, image);
+        AiRequest request = new AiRequest(system, session.history.snapshot(question, messageBudget), canAct, image,
+                visual == null ? List.of() : visual.ids());
         UUID requestId = UUID.randomUUID();
         session.requestId = requestId;
         Session accepted = session;
@@ -113,7 +126,7 @@ public final class AssistantService implements AutoCloseable {
                 AiResponse result = response; String failure = error;
                 if (closed) return;
                 try {
-                    plugin.getServer().getScheduler().runTask(plugin, () -> complete(id, accepted, requestId, question, result, failure));
+                    plugin.getServer().getScheduler().runTask(plugin, () -> complete(id, accepted, requestId, question, result, failure, visual));
                 } catch (RuntimeException e) {
                     // Disable/reload may race with scheduling; never touch player state from this worker.
                     if (!closed) plugin.getLogger().warning("Panda callback could not be scheduled.");
@@ -128,14 +141,21 @@ public final class AssistantService implements AutoCloseable {
             tell(player, "AI 请求队列已满，请稍后再试。");
         }
     }
-    private void complete(UUID id, Session expected, UUID requestId, String question, AiResponse response, String failure) {
+    private void complete(UUID id, Session expected, UUID requestId, String question, AiResponse response, String failure, VisualQuery visual) {
         if (closed || sessions.get(id) != expected || !requestId.equals(expected.requestId)) return;
         expected.requestId = null; expected.task = null; expected.touched = clock.millis();
         Player player = plugin.getServer().getPlayer(id);
         if (player == null || !player.isOnline() || !player.hasPermission("pandagpt.use")) { clear(id); return; }
+        if (visual != null && !visual.valid().getAsBoolean()) { tell(player, "视觉数据已过期、视角变化或场景变化，请重新观察。"); return; }
         if (failure != null || response == null) {
             tell(player, failure == null ? "模型没有返回结果。" : failure);
             logger.event(id, "request_failed"); return;
+        }
+        if (response.selectedObject() != null) {
+            if (visual == null || !visual.ids().contains(response.selectedObject())) {
+                tell(player, "模型选择的对象不属于本次观察，回复已拒绝，请重新提问。"); return;
+            }
+            if (!visual.select().test(response.selectedObject())) { tell(player, "选中对象的现场数据已变化，请重新观察。"); return; }
         }
         if (!response.text().isBlank()) {
             player.sendMessage(Component.text("[Panda] ", NamedTextColor.AQUA).append(FormatUtil.formatChatMessage(response.text())));

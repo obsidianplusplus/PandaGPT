@@ -26,6 +26,7 @@ class ConfigurationReloadTest {
         doCallRealMethod().when(plugin).loadService();
         when(plugin.service()).thenCallRealMethod(); when(plugin.settings()).thenCallRealMethod();
         when(plugin.vision()).thenCallRealMethod();
+        when(plugin.perception()).thenCallRealMethod(); when(plugin.memory()).thenCallRealMethod();
         Files.writeString(folder.resolve("knowledge.md"), "test knowledge");
         TestSupport.config().save(folder.resolve("config.yml").toFile());
         return plugin;
@@ -39,7 +40,7 @@ class ConfigurationReloadTest {
             assertThrows(IllegalArgumentException.class, plugin::loadService);
             assertSame(original, plugin.service());
             assertEquals(4, plugin.settings().workers());
-        } finally { plugin.vision().close(); plugin.service().close(); }
+        } finally { plugin.perception().close(); plugin.vision().close(); plugin.service().close(); plugin.memory().close(); }
     }
     @Test void legacyMigrationBacksUpAndPreservesUserSettings() throws Exception {
         ChatGPTIntegration plugin = plugin();
@@ -52,6 +53,6 @@ class ConfigurationReloadTest {
             assertEquals("custom-model", plugin.settings().model());
             assertFalse(plugin.settings().allowExecution());
             assertEquals(2, YamlConfiguration.loadConfiguration(folder.resolve("config.yml").toFile()).getInt("config_version"));
-        } finally { plugin.vision().close(); plugin.service().close(); }
+        } finally { plugin.perception().close(); plugin.vision().close(); plugin.service().close(); plugin.memory().close(); }
     }
 }

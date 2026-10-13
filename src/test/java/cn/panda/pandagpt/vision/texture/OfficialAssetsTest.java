@@ -2,6 +2,7 @@ package cn.panda.pandagpt.vision.texture;
 
 import org.junit.jupiter.api.Test;
 import cn.panda.pandagpt.vision.*;
+import cn.panda.pandagpt.perception.*;
 import cn.panda.pandagpt.vision.Camera.Vec3;
 import com.google.gson.JsonParser;
 import javax.imageio.ImageIO;
@@ -79,6 +80,16 @@ class OfficialAssetsTest {
             Files.write(Path.of("target/texture-preview.png"), rendered.colorPng());
             assertTrue(stoneColors.size() > 1, "Stone PNG variation: colors=" + stoneColors.size()
                     + ", hits=" + pixels.stream().filter(p -> p.blockData().equals("minecraft:stone")).count());
+            var entity = new EntityObservation(UUID.randomUUID(), "VILLAGER", "", new Vec3(.5, .9, 1.5),
+                    new SpatialSurvey.Box(.2, 0, 1.2, .8, 1.8, 1.8), false, "", 0, 0, 0, 0, 0, 0);
+            var observation = Observation.create(frame.captureId(), UUID.randomUUID(), 0, camera, 24, pixels,
+                    new SpatialSurvey.Report(List.of(), "Synthetic scene; no local world survey"), List.of(entity));
+            var annotated = SceneRenderer.render(frame, textures, observation);
+            assertEquals("VISIBLE_SAMPLES", observation.entities().getFirst().visibility());
+            var annotatedMetadata = JsonParser.parseString(annotated.metadata()).getAsJsonObject();
+            assertEquals(320 * 180, annotatedMetadata.getAsJsonArray("scene_object_id_pixels").size());
+            assertTrue(annotatedMetadata.getAsJsonArray("scene_objects").size() > 4);
+            Files.write(Path.of("target/perception-preview.png"), annotated.colorPng());
         }
     }
     private static String sceneBlock(int x, int y, int z) {

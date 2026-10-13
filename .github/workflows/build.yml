@@ -22,5 +22,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: PandaGPT-Paper-26.3
-          path: target/PandaGPT-2.0.0.jar
+          path: target/PandaGPT-2.1.0.jar
           if-no-files-found: error

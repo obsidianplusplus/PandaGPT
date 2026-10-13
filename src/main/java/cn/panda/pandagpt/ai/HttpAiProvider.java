@@ -140,6 +140,26 @@ public final class HttpAiProvider implements AiProvider {
                 JsonArray tools = new JsonArray(); tools.add(tool); body.add("tools", tools);
             }
         }
+        if (!request.sceneObjectIds().isEmpty()) {
+            JsonObject fn = new JsonObject(); fn.addProperty("name", "focus_scene_object");
+            fn.addProperty("description", "Select ONE observed capture-local region to resolve the user\'s visual reference. Use only listed IDs; do not invent coordinates. Include a normal text explanation when possible.");
+            JsonObject schema = new JsonObject(); schema.addProperty("type", "object");
+            JsonObject props = new JsonObject(), id = new JsonObject(); id.addProperty("type", "string");
+            JsonArray ids = new JsonArray(); request.sceneObjectIds().forEach(value -> ids.add(Integer.toString(value))); id.add("enum", ids); props.add("object_id", id);
+            JsonObject answer = new JsonObject(); answer.addProperty("type", "string");
+            answer.addProperty("description", "A concise answer to the user's question using the observed scene. Explicitly distinguish unknown areas and local collision checks from complete structure/path guarantees."); props.add("answer", answer);
+            schema.add("properties", props); JsonArray required = new JsonArray(); required.add("object_id"); required.add("answer"); schema.add("required", required);
+            fn.add("parameters", schema);
+            JsonArray tools = body.has("tools") ? body.getAsJsonArray("tools") : new JsonArray();
+            if (settings.provider().equals("openai")) {
+                JsonObject tool = new JsonObject(); tool.addProperty("type", "function"); tool.add("function", fn); tools.add(tool);
+                body.addProperty("tool_choice", "auto"); body.addProperty("parallel_tool_calls", false);
+            } else {
+                if (tools.isEmpty()) { JsonObject tool = new JsonObject(); tool.add("functionDeclarations", new JsonArray()); tools.add(tool); }
+                tools.get(0).getAsJsonObject().getAsJsonArray("functionDeclarations").add(fn);
+            }
+            body.add("tools", tools);
+        }
         return body.toString();
     }
     private static JsonArray textParts(String text) {
@@ -184,8 +204,10 @@ public final class HttpAiProvider implements AiProvider {
                     }
                 }
             }
-            if (text.toString().isBlank() && actions.isEmpty()) throw new IOException("模型返回了空回复。");
-            return new AiResponse(text.toString().strip(), actions);
+            SceneChoice selection = parseSelection(provider, root);
+            if (text.toString().isBlank() && selection != null) text.append(selection.answer());
+            if (text.toString().isBlank() && actions.isEmpty() && selection == null) throw new IOException("模型返回了空回复。");
+            return new AiResponse(text.toString().strip(), actions, selection == null ? null : selection.id());
         } catch (JsonParseException | IllegalStateException | NullPointerException | UnsupportedOperationException e) {
             throw new IOException("模型响应格式无效。");
         }
@@ -195,6 +217,31 @@ public final class HttpAiProvider implements AiProvider {
         String command = string(args, "command"), reason = string(args, "reason");
         if (command.isBlank() || command.length() > 512 || reason.length() > 500) throw new IOException("模型动作参数无效。");
         actions.add(new AiResponse.Action(command, reason));
+    }
+    private record SceneChoice(int id, String answer) {}
+    private static SceneChoice parseSelection(String provider, JsonObject root) throws IOException {
+        List<JsonObject> calls = new ArrayList<>();
+        if (provider.equals("openai")) {
+            JsonArray array = root.getAsJsonArray("choices").get(0).getAsJsonObject().getAsJsonObject("message").getAsJsonArray("tool_calls");
+            if (array != null) for (JsonElement e : array) {
+                JsonObject c = e.getAsJsonObject();
+                if ("function".equals(string(c, "type")) && "focus_scene_object".equals(string(c.getAsJsonObject("function"), "name")))
+                    calls.add(JsonParser.parseString(string(c.getAsJsonObject("function"), "arguments")).getAsJsonObject());
+            }
+        } else {
+            JsonArray parts = root.getAsJsonArray("candidates").get(0).getAsJsonObject().getAsJsonObject("content").getAsJsonArray("parts");
+            for (JsonElement e : parts) {
+                JsonObject c = e.getAsJsonObject().getAsJsonObject("functionCall");
+                if (c != null && "focus_scene_object".equals(string(c, "name"))) calls.add(c.getAsJsonObject("args"));
+            }
+        }
+        if (calls.size() > 1) throw new IOException("模型选择了多个视觉对象，请明确一个目标。");
+        if (calls.isEmpty()) return null;
+        String id = calls.getFirst().get("object_id").getAsString();
+        if (!id.matches("[1-9][0-9]?")) throw new IOException("视觉对象编号无效。");
+        int number = Integer.parseInt(id); if (number > 48) throw new IOException("视觉对象编号无效。");
+        String answer = string(calls.getFirst(), "answer"); if (answer.length() > 8000) throw new IOException("视觉回答超过长度上限。");
+        return new SceneChoice(number, answer);
     }
     private static String string(JsonObject object, String name) {
         JsonElement e = object.get(name); return e == null || e.isJsonNull() ? "" : e.getAsString();

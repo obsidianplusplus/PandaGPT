@@ -18,6 +18,26 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class VisionControllerTest {
+    @Test void ambientObservationIsSilentUsesBoundedSamplingAndNeverWritesPngOrCallsAi() throws Exception {
+        Fixture f = fixture(); var assistant = mock(AssistantService.class);
+        when(f.player.getLocation()).thenReturn(new Location(f.world, .5, 64, .5));
+        BukkitScheduler scheduler = mock(BukkitScheduler.class); when(f.plugin.getServer().getScheduler()).thenReturn(scheduler);
+        BlockingQueue<Runnable> callbacks = new LinkedBlockingQueue<>();
+        when(scheduler.runTask(eq(f.plugin), any(Runnable.class))).thenAnswer(i -> { callbacks.add(i.getArgument(1)); return mock(BukkitTask.class); });
+        var perception = mock(cn.panda.pandagpt.perception.PerceptionController.class);
+        try (var vision = new VisionController(f.plugin, f.settings.vision(), assistant, folder)) {
+            vision.attach(perception, f.settings.perception()); assertTrue(vision.observe(f.player));
+            for (int i = 0; i < 160 && callbacks.isEmpty(); i++) vision.tick();
+            Runnable callback = callbacks.poll(5, TimeUnit.SECONDS); assertNotNull(callback); callback.run();
+            var observation = org.mockito.ArgumentCaptor.forClass(cn.panda.pandagpt.perception.Observation.class);
+            verify(perception).accept(eq(f.player), observation.capture());
+            assertEquals(32, observation.getValue().camera().width()); assertEquals(18, observation.getValue().camera().height());
+            assertFalse(java.nio.file.Files.exists(folder.resolve("captures")));
+            verify(f.player, never()).sendMessage(any(net.kyori.adventure.text.Component.class));
+            verify(assistant, never()).ask(any(Player.class), anyString(), anyString(), any(), any());
+            verify(f.world, never()).getBlockAt(anyInt(), anyInt(), anyInt());
+        }
+    }
     @TempDir Path folder;
     private record Fixture(ChatGPTIntegration plugin, Player player, World world, Settings settings) {}
     private Fixture fixture() {

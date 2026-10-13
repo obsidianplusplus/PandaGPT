@@ -18,6 +18,40 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class AssistantServiceTest {
+    @Test void oversizedVisualEvidenceIsBoundedWithoutDroppingTheQuestionOrInventingMissingData() throws Exception {
+        Fixture f = fixture(); List<AiRequest> received = new CopyOnWriteArrayList<>();
+        AiProvider provider = request -> { received.add(request); return new AiResponse("answer", List.of()); };
+        try (var service = new AssistantService(f.plugin, settings(), provider, mock(PandaLogger.class), null, "", Clock.systemUTC(), (p, q) -> "{}")) {
+            service.ask(f.player, "question", "known evidence\n".repeat(2000), null);
+            Objects.requireNonNull(f.callbacks.poll(5, TimeUnit.SECONDS)).run();
+            assertEquals(1, received.size());
+            assertTrue(received.getFirst().systemPrompt().contains("do not infer omitted"));
+            assertTrue(received.getFirst().systemPrompt().length() + "question".length() <= settings().contextBudget());
+        }
+    }
+    @Test void visualResponsesAreRejectedAfterExpiryOrForIdsOutsideTheCapture() throws Exception {
+        for (boolean fresh : List.of(false, true)) {
+            Fixture f = fixture(); var selected = new java.util.concurrent.atomic.AtomicInteger();
+            AiProvider provider = request -> new AiResponse("must not deliver", List.of(), fresh ? 9 : 1);
+            var query = new AssistantService.VisualQuery(List.of(1), () -> fresh, id -> { selected.set(id); return true; });
+            try (var service = new AssistantService(f.plugin, settings(), provider, mock(PandaLogger.class), null, "", Clock.systemUTC(), (p, q) -> "{}")) {
+                service.ask(f.player, "this", "scene", null, query);
+                Runnable callback = f.callbacks.poll(5, TimeUnit.SECONDS); assertNotNull(callback); clearInvocations(f.player); callback.run();
+                assertEquals(0, selected.get());
+                var captured = ArgumentCaptor.forClass(Component.class); verify(f.player).sendMessage(captured.capture());
+                assertFalse(net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(captured.getValue()).contains("must not deliver"));
+            }
+        }
+    }
+    @Test void validatedSceneSelectionIsDeliveredAndNeverBecomesAnExecutableAction() throws Exception {
+        Fixture f = fixture(); var selected = new java.util.concurrent.atomic.AtomicInteger();
+        AiProvider provider = request -> { assertEquals(List.of(2), request.sceneObjectIds()); return new AiResponse("left furnace", List.of(), 2); };
+        var query = new AssistantService.VisualQuery(List.of(2), () -> true, id -> { selected.set(id); return true; });
+        try (var service = new AssistantService(f.plugin, settings(), provider, mock(PandaLogger.class), null, "", Clock.systemUTC(), (p, q) -> "{}")) {
+            service.ask(f.player, "this", "scene", null, query); Objects.requireNonNull(f.callbacks.poll(5, TimeUnit.SECONDS)).run();
+            assertEquals(2, selected.get()); verify(f.player, never()).performCommand(anyString());
+        }
+    }
     private record Fixture(ChatGPTIntegration plugin, Server server, Player player, BlockingQueue<Runnable> callbacks) {}
     private Fixture fixture() {
         var plugin = mock(ChatGPTIntegration.class); var server = mock(Server.class); var scheduler = mock(BukkitScheduler.class);

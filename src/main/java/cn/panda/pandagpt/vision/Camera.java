@@ -24,6 +24,17 @@ public record Camera(Vec3 origin, double yaw, double pitch, int width, int heigh
         double sy = (1 - 2 * (y + .5) / height) * halfY;
         return forward().add(right.scale(sx)).add(up.scale(sy)).normalize();
     }
+    /** Pixel coordinates in this configured projection; points behind the camera have no projection. */
+    public double[] project(Vec3 point) {
+        double yr = Math.toRadians(yaw), pr = Math.toRadians(pitch);
+        Vec3 delta = point.add(origin.scale(-1)); double depth = delta.dot(forward());
+        if (depth <= .01) return null;
+        Vec3 right = new Vec3(-Math.cos(yr), 0, -Math.sin(yr));
+        Vec3 up = new Vec3(-Math.sin(yr) * Math.sin(pr), Math.cos(pr), Math.cos(yr) * Math.sin(pr));
+        double halfY = Math.tan(Math.toRadians(verticalFov) / 2);
+        return new double[]{(delta.dot(right) / depth / (halfY * width / height) + 1) * width / 2,
+                (1 - delta.dot(up) / depth / halfY) * height / 2};
+    }
     public boolean matches(Vec3 eye, double currentYaw, double currentPitch, VisionSettings settings) {
         Camera current = new Camera(eye, currentYaw, currentPitch, width, height, verticalFov);
         double angle = Math.toDegrees(Math.acos(Math.clamp(forward().dot(current.forward()), -1, 1)));

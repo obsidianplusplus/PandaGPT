@@ -46,6 +46,7 @@ public final class RecipeKnowledge {
         }
         return List.copyOf(results);
     }
+    public List<Entry> entries() { return List.copyOf(entries); }
     public static boolean matches(List<RecipeChoice> choices, ItemStack[] stock) {
         int[] counts = new int[stock.length];
         for (int i = 0; i < stock.length; i++) if (stock[i] != null) counts[i] = stock[i].getAmount();

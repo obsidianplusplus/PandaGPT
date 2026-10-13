@@ -8,6 +8,8 @@ import cn.panda.pandagpt.listeners.ChatListener;
 import cn.panda.pandagpt.service.AssistantService;
 import cn.panda.pandagpt.util.PandaLogger;
 import cn.panda.pandagpt.vision.VisionController;
+import cn.panda.pandagpt.perception.*;
+import cn.panda.pandagpt.listeners.PerceptionListener;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
@@ -22,6 +24,8 @@ public final class ChatGPTIntegration extends JavaPlugin {
     private volatile Pattern triggerPattern;
     private AssistantService service;
     private VisionController vision;
+    private PerceptionController perception;
+    private SpatialMemory memory;
     private BukkitTask cleanup;
     private BukkitTask visionTick;
 
@@ -37,8 +41,9 @@ public final class ChatGPTIntegration extends JavaPlugin {
             Objects.requireNonNull(getCommand("pandaadmin")).setExecutor(command);
             Objects.requireNonNull(getCommand("pandaadmin")).setTabCompleter(command);
             getServer().getPluginManager().registerEvents(new ChatListener(this), this);
+            getServer().getPluginManager().registerEvents(new PerceptionListener(this), this);
             cleanup = getServer().getScheduler().runTaskTimer(this, () -> service.expire(), 1200, 1200);
-            visionTick = getServer().getScheduler().runTaskTimer(this, () -> vision.tick(), 1, 1);
+            visionTick = getServer().getScheduler().runTaskTimer(this, () -> { vision.tick(); perception.tick(); }, 1, 1);
             getLogger().info("PandaGPT enabled: Paper 26.3 / Java 25; " + service.status());
             if (settings.apiKey().isBlank()) getLogger().warning("Selected AI provider has no API key; questions will be rejected until configured.");
         } catch (Exception e) {
@@ -84,18 +89,25 @@ public final class ChatGPTIntegration extends JavaPlugin {
         catch (RuntimeException e) { log.close(); throw e; }
         AssistantService replacement = new AssistantService(this, next, provider, log, recipes, knowledge);
         VisionController nextVision = new VisionController(this, next.vision(), replacement, getDataFolder().toPath());
+        if (memory == null) memory = new SpatialMemory(getDataFolder().toPath().resolve("memory"), next.perception().maxPlayers(), message -> getLogger().warning(message));
+        PerceptionController nextPerception = new PerceptionController(this, next.perception(), memory, recipes);
+        nextPerception.attach(nextVision);
         try {
             saveAtomically(candidate, path);
         } catch (IOException e) {
-            nextVision.close(); replacement.close(); throw new IOException("Cannot save validated configuration");
+            nextPerception.close(); nextVision.close(); replacement.close(); throw new IOException("Cannot save validated configuration");
         }
         AssistantService previous = service;
         VisionController previousVision = vision;
+        PerceptionController previousPerception = perception;
+        memory.setLimit(next.perception().maxPlayers());
         service = replacement;
         vision = nextVision;
+        perception = nextPerception;
         settings = next;
         triggerPattern = Pattern.compile("^\\s*@?" + Pattern.quote(next.trigger())
                 + "(?:\\s+|[,:：，]\\s*|$)(.*)$", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE | Pattern.DOTALL);
+        if (previousPerception != null) previousPerception.close();
         if (previousVision != null) previousVision.close();
         if (previous != null) previous.close();
     }
@@ -116,10 +128,20 @@ public final class ChatGPTIntegration extends JavaPlugin {
     public Pattern triggerPattern() { return triggerPattern; }
     public AssistantService service() { return service; }
     public VisionController vision() { return vision; }
+    public PerceptionController perception() { return perception; }
+    public SpatialMemory memory() { return memory; }
+    public void ask(org.bukkit.entity.Player player, String question) {
+        if (settings.perception().enabled() && player.hasPermission("pandagpt.vision")
+                && question.matches("(?is).*(眼前|左边|右边|前面|这个|那个|这条路|这栋|in front|on the left|on the right|this block|that door).*"))
+            vision.capture(player, question, false);
+        else service.ask(player, question);
+    }
     @Override public void onDisable() {
         if (cleanup != null) cleanup.cancel();
         if (visionTick != null) visionTick.cancel();
+        if (perception != null) { perception.close(); perception = null; }
         if (vision != null) { vision.close(); vision = null; }
         if (service != null) { service.close(); service = null; }
+        if (memory != null) { memory.close(); memory = null; }
     }
 }
