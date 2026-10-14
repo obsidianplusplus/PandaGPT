@@ -1,31 +1,31 @@
 name: PandaGPT
-version: '2.1.1'
+version: '3.1.0'
 main: cn.panda.pandagpt.ChatGPTIntegration
 api-version: '26.3'
-description: A scene-aware Minecraft assistant with quiet suggestions, spatial memory and confirmed player actions.
+softdepend: [Vault, PlaceholderAPI, LuckPerms, WorldGuard, GriefPrevention, Towny, Lands, Essentials, CoreProtect, mcMMO, AuraSkills]
+description: 只需在聊天中说 panda 的 Minecraft Agent 助手：能看、能记、会查资料，也会在合适的时候安静地提醒你。
 website: https://github.com/obsidianplusplus/PandaGPT
 commands:
-  panda:
-    description: Ask Panda, clear your conversation, or confirm a proposed action.
-    usage: /panda <question|vision|observe|memory|goal|proactive|clear|confirm code|cancel>
-    permission: pandagpt.use
   pandaadmin:
-    description: Reload configuration, inspect status, or clear all sessions.
+    description: 重载配置、查看状态或清除全部会话。
     usage: /pandaadmin <reload|status|clearchat>
     permission: pandagpt.admin
 permissions:
   pandagpt.use:
-    description: Allows asking the assistant questions.
+    description: 允许向助手提问。
     default: true
   pandagpt.actions:
-    description: Allows receiving and confirming allowlisted player commands.
+    description: 允许接收并确认允许列表中的玩家命令。
     default: op
   pandagpt.admin:
-    description: Allows managing PandaGPT.
+    description: 允许管理 PandaGPT。
     default: op
   pandagpt.vision:
-    description: Allows generating first-person raycast images and asking a vision model.
+    description: 允许生成第一人称射线重建图并向视觉模型提问。
     default: op
   pandagpt.vision.debug:
-    description: Allows showing computed ray hit points as private particles.
+    description: 允许以私有粒子显示射线命中点。
+    default: op
+  pandagpt.blockhistory:
+    description: 允许 Agent 查询 CoreProtect 方块记录（谁放置或破坏了方块）。
     default: op

@@ -1,65 +1,86 @@
 config_version: 2
 openai:
-  api_key: '' # Alternatively set PANDAGPT_OPENAI_API_KEY on the server.
+  api_key: '' # 也可以在服务器进程中设置环境变量 PANDAGPT_OPENAI_API_KEY。
   api_url: 'https://api.openai.com/v1/chat/completions'
 gemini:
-  api_key: '' # Alternatively set PANDAGPT_GEMINI_API_KEY on the server.
+  api_key: '' # 也可以在服务器进程中设置环境变量 PANDAGPT_GEMINI_API_KEY。
   api_url: 'https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent'
 panda:
-  trigger_word: 'panda' # Matches panda or @panda at the start of a chat message.
+  language:
+    default: 'zh_CN' # 控制台与未匹配语言的默认语言：zh_CN zh_TW en_US ja_JP ko_KR es_ES fr_FR de_DE ru_RU pt_BR ar_SA hi_IN
+    per_player: true # 按玩家客户端语言显示消息；关闭后所有人使用默认语言。
+  agent:
+    max_steps: 8 # 每次对话最多请求模型的次数；Agent 会在其中自行调用工具、查看结果、再决定下一步。
+    max_tool_calls: 16 # 每次对话最多执行的工具调用数。
+    turn_timeout_seconds: 120 # 每次对话的总时长上限，包含全部模型请求与工具执行（例如等待视觉采样）。
+    max_tool_result_chars: 6000 # 单个工具结果交给模型前的截断长度。
+    proactive: true # 主动建议由 Agent 判断是否开口与措辞；关闭后使用内置提示文本。
+    disabled_skills: [] # 关闭的技能名称，例如 [commands, vision]；技能文件位于 plugins/PandaGPT/skills/。
+  trigger_word: 'panda' # 匹配聊天开头的 panda 或 @panda。
   personality: '你是 Minecraft 服务器助手 Panda。用玩家提问的语言简洁回答。根据提供的服务器事实回答；不知道就明确说明。不要声称已经执行任何尚未执行的动作。'
-  cooldown: 5000 # Milliseconds; each player may also have only one request in flight.
+  cooldown: 5000 # 毫秒；每位玩家同时也只能有一个在途请求。
   cancel_chat_message: true
-  history_rounds: 5 # Complete user/assistant pairs, not individual messages.
+  history_rounds: 5 # 完整问答轮数，不是单条消息数。
   max_sessions: 1000
   session_ttl_seconds: 1800
   max_prompt_chars: 2000
-  context_char_budget: 16000 # Character budget, not an exact tokenizer count.
+  context_char_budget: 16000 # 字符预算，不是精确的 token 数。
   max_output_tokens: 1000
   perception:
     enabled: true
-    observe_seconds: 30 # Low-resolution 32x18 geometry observation; same shared tick budget as manual vision.
-    scene_ttl_seconds: 60 # Historical observations expire; changes invalidate known coordinates.
+    observe_seconds: 30 # 低分辨率 32x18 几何观察；与手动视觉共享同一份 tick 预算。
+    scene_ttl_seconds: 60 # 历史观察会过期；方块变化会使已知坐标失效。
     entity_radius: 20
     max_entities: 16
     max_players: 128
-    proactive: true # Local suggestions only; background observations never call a paid model.
-    suggestion_seconds: 900 # Minimum spacing between ordinary text suggestions, not a mandatory reminder.
-    routine_per_half_hour: 2 # Zero means no ordinary suggestions; urgent local risks are independently deduplicated.
+    proactive: true # 只产生本地建议；后台观察从不调用付费模型。
+    suggestion_seconds: 900 # 普通文字建议的最小间隔，不是定时提醒。
+    routine_per_half_hour: 2 # 0 表示不发普通建议；紧急局部风险独立去重。
   vision:
-    enabled: true # Full PNG capture is explicit; enabled perception may schedule quiet geometry observations.
+    enabled: true # 完整 PNG 采样需显式请求；开启感知时可能安排安静的几何观察。
     width: 160
     height: 90
-    vertical_fov: 70 # Configured vertical FOV; server cannot read the real client FOV.
-    max_distance: 96 # Also clipped by reported/sending view distance and sent+loaded chunk membership.
-    rays_per_tick: 256 # Global cap shared across captures.
-    cells_per_tick: 8192 # Global DDA/survey/mark cell cap; rays pause inside traversal when exhausted.
-    time_budget_ms: 2 # Shared scheduled loop deadline; checked before each cell. Native API calls are not preemptible.
+    vertical_fov: 70 # 配置的垂直视场角；服务器无法读取客户端真实 FOV。
+    max_distance: 96 # 同时受客户端/发送视距以及已发送且已加载的区块限制。
+    rays_per_tick: 256 # 所有采样共享的全局上限。
+    cells_per_tick: 8192 # DDA/空间调查/标记共享的格子上限；耗尽时射线在遍历中暂停。
+    time_budget_ms: 2 # 共享的每 tick 截止时间；原生 API 调用本身无法中途打断。
     max_concurrent_captures: 2
     timeout_ticks: 200
     cooldown_seconds: 10
     movement_tolerance: 0.35
     angle_tolerance: 3
     max_debug_particles: 64
-    save_images: true # Latest files per UUID in captures/<UUID>/; no public HTTP endpoint.
+    save_images: true # 每个 UUID 只保留最新一组文件，位于 captures/<UUID>/；不提供公开 HTTP 访问。
     textures:
-      enabled: true # True PNG texels; no silent map-color replacement for missing models.
+      enabled: true # 使用真实 PNG 纹理；模型缺失时不会静默改用地图色。
       packs:
-        - 'assets/vanilla-26.3.zip' # Relative to plugins/PandaGPT; folders, ZIPs or client JARs.
-        # - 'assets/server-pack.zip' # Later packs override earlier packs.
-      cache_mib: 64 # Decoded PNG pixel budget. Animated PNGs use the first declared frame.
+        - 'assets/vanilla-26.3.zip' # 相对于 plugins/PandaGPT；支持文件夹、ZIP 或客户端 JAR。
+        # - 'assets/server-pack.zip' # 后面的包覆盖前面的包。
+      cache_mib: 64 # 解码后 PNG 像素的缓存预算；动画 PNG 使用第一帧。
+  features:
+    preview_max_blocks: 2048 # 建筑幽灵预览一次最多显示的方块数（只有玩家自己看得到，不改动世界）。
+    preview_seconds: 180 # 预览自动消失前的秒数。
+    guidance_seconds: 600 # 粒子导航的最长持续时间。
+    max_reminders: 10 # 每位玩家同时存在的提醒上限；0 表示关闭提醒。
+    map_url: '' # 在线地图链接模板，例如 'https://map.example.com/#{world}:{x}:{y}:{z}:50:0:0:0:0:perspective'；留空表示没有网页地图。
+  integrations:
+    disabled: [] # 不启用的外部插件集成：economy placeholders ranks regions claims towny lands essentials block-history mcmmo auraskills
+    placeholder_denylist: ['ip', 'address', 'password', 'token', 'email', 'uuid'] # 包含这些片段的变量一律不解析，防止泄露隐私。
+    block_history_days: 7 # CoreProtect 方块记录最多查询的天数（需要 pandagpt.blockhistory 权限）。
   model_selection:
     provider: 'gemini'
     openai:
       model: 'gpt-4.1-mini'
     gemini:
-      model: 'gemini-3.8-flash' # Check availability for your API account.
+      model: 'gemini-3.8-flash' # 请确认你的 API 账户可以使用该模型。
   requests:
     workers: 4
     queue_size: 32
     connect_timeout_seconds: 10
-    timeout_seconds: 45
+    timeout_seconds: 45 # 单次提问的总时长上限，包含重试。
     max_response_bytes: 1048576
+    retries: 1 # 仅对 429/502/503/504 与连接失败重试；动作提案仍需玩家确认，不会重复执行。
   environment_awareness:
     enabled: true
     radius: 20
@@ -67,12 +88,12 @@ panda:
     max_recipes: 6
   command_awareness:
     enabled: true
-    allow_execution: false # AI text is never executed. Only tool proposals may be confirmed.
-    executor: 'player' # Only player is supported; never elevate privileges.
+    allow_execution: false # AI 文本永远不会被执行，只有工具提案可以被确认。
+    executor: 'player' # 只支持 player；绝不提升权限。
     max_executions: 3
     confirmation_ttl_seconds: 60
     allowed_commands:
-      - help # Exact root allowlist. Review every command's argument semantics.
+      - help # 精确的命令根名称允许列表。请审核每条命令的参数语义。
     blocked_commands:
       - op
       - deop
@@ -85,11 +106,11 @@ panda:
       - pandaadmin
   logging:
     enabled: true
-    conversations: false # Opt in to recording raw questions and model answers.
+    conversations: false # 显式开启后才记录原始问题与模型回答。
     max_bytes: 1048576
     files: 3
   proxy:
-    enabled: false
+    enabled: false # HTTP CONNECT 代理；使用账号密码时需在 JVM 参数中加入 -Djdk.http.auth.tunneling.disabledSchemes=
     host: 'localhost'
     port: 10808
     username: ''

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Compare actual pre-optimization sources against current code by counted World API calls.
-Requires Java 25, Maven, git, and one prior `mvn test` to produce its test classpath.
-No server, client assets, model API, or EULA acceptance is needed.
+"""按 World API 调用次数比较优化前的真实源码与当前代码。
+需要 Java 25、Maven、git，并先执行一次 `mvn test` 以生成测试类路径。
+不需要服务器、客户端资源、模型 API，也不需要接受 EULA。
 """
 import argparse
 import os

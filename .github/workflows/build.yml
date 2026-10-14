@@ -23,6 +23,6 @@ jobs:
         with:
           name: PandaGPT-Paper-26.3
           path: |
-            target/PandaGPT-2.1.1.jar
+            target/PandaGPT-3.1.0.jar
             target/performance-results.json
           if-no-files-found: error
