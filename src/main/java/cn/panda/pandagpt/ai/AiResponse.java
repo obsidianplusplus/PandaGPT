@@ -1,7 +1,19 @@
 package cn.panda.pandagpt.ai;
+
 import java.util.List;
-public record AiResponse(String text, List<Action> actions, Integer selectedObject) {
-    public record Action(String command, String reason) {}
-    public AiResponse { actions = List.copyOf(actions); }
-    public AiResponse(String text, List<Action> actions) { this(text, actions, null); }
+
+/**
+ * 模型的一步回复：文本与工具调用。
+ *
+ * @param signature Gemini 附在文本上的思考签名，需要在下一步原样带回
+ */
+public record AiResponse(String text, List<ToolCall> toolCalls, String signature) {
+    public AiResponse {
+        text = text == null ? "" : text;
+        toolCalls = List.copyOf(toolCalls);
+    }
+
+    public AiResponse(String text) {
+        this(text, List.of(), null);
+    }
 }
