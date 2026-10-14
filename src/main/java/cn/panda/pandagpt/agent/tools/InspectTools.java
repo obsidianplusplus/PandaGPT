@@ -30,7 +30,7 @@ public final class InspectTools {
 
     public static List<AgentTool> create(ChatGPTIntegration plugin) {
         return List.of(
-                AgentTool.of(
+                AgentTool.readOnlyOf(
                         "inspect_item",
                         "Details of an item the player holds or wears: durability left, enchantments, repair cost, "
                                 + "custom name and lore.",
@@ -47,7 +47,7 @@ public final class InspectTools {
                         p -> true,
                         ToolSupport.activity("status"),
                         (context, args) -> ToolResult.ok(describe(item(context.player(), Schema.text(args, "slot"))))),
-                AgentTool.of(
+                AgentTool.readOnlyOf(
                         "villager_trades",
                         "Trades offered by villagers and wandering traders the player can see nearby, including "
                                 + "enchanted book enchantments. Use it to find who sells or buys something.",
@@ -56,7 +56,7 @@ public final class InspectTools {
                         ToolSupport.activity("nearby"),
                         (context, args) -> ToolResult.ok(
                                 trades(context.player(), Math.clamp(Schema.number(args, "radius", 16), 4, 32)))),
-                AgentTool.of(
+                AgentTool.readOnlyOf(
                         "server_plugins",
                         "Plugins installed on this server with versions and descriptions, to know which features "
                                 + "and commands exist. Combine with list_server_commands and search_server_knowledge.",

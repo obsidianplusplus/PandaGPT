@@ -57,7 +57,7 @@ public final class ReminderTools {
                                             : "at " + trigger)
                                     + "). Reminders are kept until the server restarts.");
                         }),
-                AgentTool.of(
+                AgentTool.readOnlyOf(
                         "list_reminders",
                         "The player's pending reminders.",
                         object(),

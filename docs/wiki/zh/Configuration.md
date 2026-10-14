@@ -31,8 +31,9 @@
 |---|---|---|---|
 | `panda.agent.max_steps` | 8 | 1–16 | 每回合最多请求模型的次数 |
 | `panda.agent.max_tool_calls` | 16 | 1–48 | 每回合最多执行的工具调用数 |
+| `panda.agent.max_parallel_reads` | 3 | 1–8 | 独立只读工具同时等待上限；写入与未标记工具串行 |
 | `panda.agent.turn_timeout_seconds` | 120 | 10–600 | 每回合总时长，含全部模型请求与工具执行 |
-| `panda.agent.max_tool_result_chars` | 6000 | 500–32000 | 单个工具结果的截断长度 |
+| `panda.agent.max_tool_result_chars` | 6000 | 500–32000 | 单个结果字符预算；记忆证据超限拒绝，其他截断标明缺失上下文 |
 | `panda.agent.proactive` | `true` | | 主动建议由 Agent 判断与措辞；关闭后使用内置文本 |
 | `panda.agent.disabled_skills` | `[]` | | 关闭的技能，例如 `[commands, vision]` |
 
@@ -82,7 +83,8 @@ panda:
 | 键 | 默认 | 说明 |
 |---|---|---|
 | `panda.memory.enabled` | `true` | 游戏记忆、原始证据记录与按需召回；独立于视觉/感知开关 |
-| `panda.memory.distillation` | `true` | 四条独立提取式蒸馏流程，无额外模型调用 |
+| `panda.memory.distillation` | `true` | 独立索引与后台语义摘要/经历关系；增加模型请求 |
+| `panda.memory.distill_output_tokens` | 4096 | 蒸馏输出预算，512–8192 token，独立于聊天预算 |
 | `panda.memory.recall_limit` | 6 | 一次最多返回 1–12 条相关记忆 |
 | `panda.memory.context_chars` | 1800 | 每次提问附带相关记忆的字符预算，256–4000 |
 

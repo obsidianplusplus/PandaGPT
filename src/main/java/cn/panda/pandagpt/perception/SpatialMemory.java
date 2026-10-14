@@ -3,6 +3,7 @@ package cn.panda.pandagpt.perception;
 import cn.panda.pandagpt.i18n.Lang;
 import cn.panda.pandagpt.memory.GameMemory;
 import cn.panda.pandagpt.memory.MemorySettings;
+import cn.panda.pandagpt.memory.SemanticDistiller;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -133,6 +134,7 @@ public final class SpatialMemory implements AutoCloseable {
     private static final long WARNING_INTERVAL_MILLIS = 60_000;
 
     private final Path folder;
+    private final java.util.function.LongSupplier nanoClock;
     private volatile int limit;
     private volatile MemorySettings settings = MemorySettings.defaults();
     private final Consumer<String> errors;
@@ -153,11 +155,39 @@ public final class SpatialMemory implements AutoCloseable {
     private final Map<UUID, Long> dirty = new ConcurrentHashMap<>();
     private final Set<UUID> scheduled = ConcurrentHashMap.newKeySet();
     private final ThreadPoolExecutor io;
+    private final ThreadPoolExecutor semantic = new ThreadPoolExecutor(
+            1,
+            1,
+            0,
+            TimeUnit.SECONDS,
+            new ArrayBlockingQueue<>(32),
+            Thread.ofPlatform().daemon().name("pandagpt-distill-", 0).factory(),
+            new ThreadPoolExecutor.AbortPolicy());
+    private volatile SemanticDistiller distiller;
+    private final Map<UUID, CompletableFuture<GameMemory.State>> distilling = new ConcurrentHashMap<>();
+
+    private record ForgetPermit(UUID token, List<UUID> evidence, Data snapshot, long deadline) {}
+
+    private final Map<UUID, ForgetPermit> forgetPermits = new ConcurrentHashMap<>();
+
+    public record ForgetPreview(
+            UUID token, List<GameMemory.Event> affected, String confirmation, long validForSeconds) {}
+
+    public void setDistiller(SemanticDistiller next) {
+        distiller = next;
+        forgetPermits.clear();
+    }
+
     private final Gson gson = new Gson();
     private final AtomicLong lastQueueWarning = new AtomicLong(Long.MIN_VALUE);
     private final AtomicLong suppressedWarnings = new AtomicLong();
 
     public SpatialMemory(Path folder, int limit, Consumer<String> errors) {
+        this(folder, limit, errors, System::nanoTime);
+    }
+
+    public SpatialMemory(Path folder, int limit, Consumer<String> errors, java.util.function.LongSupplier nanoClock) {
+        this.nanoClock = nanoClock;
         this.folder = folder;
         this.limit = limit;
         this.errors = errors;
@@ -201,6 +231,7 @@ public final class SpatialMemory implements AutoCloseable {
                 || !request(player)
                 || !submit(() -> {
                     try {
+                        if (result.isCancelled()) return;
                         if (!ready(player)) {
                             throw new IOException("Memory unavailable");
                         }
@@ -226,15 +257,34 @@ public final class SpatialMemory implements AutoCloseable {
     }
 
     private void saveGame(UUID player, Data data) {
+        Data previous = cache.getOrDefault(player, Data.empty());
         try {
             Data next = data.withGame(GameMemory.synchronize(data, settings.distillation()));
             write(player, next);
             cache.put(player, mask(player, next));
             index(player, next);
+            evidenceChanged(player, previous, next);
         } catch (IOException e) {
             throw new java.io.UncheckedIOException(e);
         }
     }
+
+    private void evidenceChanged(UUID player, Data previous, Data next) {
+        if (!previous.game().events().equals(next.game().events())) {
+            forgetPermits.remove(player);
+            if (settings.distillation() && distiller != null) distillGame(player);
+        }
+    }
+
+    private static boolean sameEvidenceData(Data first, Data second) {
+        return first.landmarks().equals(second.landmarks())
+                && first.notes().equals(second.notes())
+                && first.goal().equals(second.goal())
+                && first.quantity() == second.quantity()
+                && first.game().events().equals(second.game().events());
+    }
+
+    private static final class StaleEvidence extends IllegalStateException {}
 
     public CompletableFuture<GameMemory.Recall> recallGame(
             UUID player, UUID world, String query, GameMemory.Kind kind, boolean allWorlds, boolean history, long now) {
@@ -252,53 +302,154 @@ public final class SpatialMemory implements AutoCloseable {
                         now));
     }
 
-    public CompletableFuture<Boolean> forgetGame(UUID player, UUID id) {
+    /** Preview and confirmation are scoped to one player, one exact data revision and five minutes. */
+    public CompletableFuture<ForgetPreview> prepareForget(UUID player, UUID id) {
+        return gameTask(player, data -> prepareForget(player, data, List.of(id)));
+    }
+
+    private List<GameMemory.Event> affected(Data data, List<UUID> ids) {
+        var selected =
+                data.game().events().stream().filter(e -> ids.contains(e.id())).toList();
+        if (selected.size() != ids.size() || ids.isEmpty()) throw new IllegalArgumentException("Memory ID not found");
+        var affected = data.game().events().stream()
+                .filter(e -> ids.contains(e.id())
+                        || selected.stream()
+                                .anyMatch(s -> s.kind() != GameMemory.Kind.EPISODE && GameMemory.sameTopic(s, e)))
+                .toList();
+        if (affected.stream().anyMatch(e -> e.source() == GameMemory.Source.GOAL))
+            throw new IllegalArgumentException("Use clear_goal for crafting goals");
+        return affected;
+    }
+
+    private ForgetPreview prepareForget(UUID player, Data data, List<UUID> ids) {
+        var affected = affected(data, ids);
+        UUID token = UUID.randomUUID();
+        forgetPermits.put(
+                player,
+                new ForgetPermit(token, List.copyOf(ids), data, nanoClock.getAsLong() + TimeUnit.MINUTES.toNanos(5)));
+        return new ForgetPreview(token, affected, "确认遗忘 " + token, 300);
+    }
+
+    private boolean confirmForget(UUID player, Data data, List<UUID> ids, UUID token, String playerMessage) {
+        ForgetPermit permit = forgetPermits.get(player);
+        if (permit == null
+                || !permit.token().equals(token)
+                || !permit.evidence().equals(ids)
+                || !("确认遗忘 " + token).equals(playerMessage.strip())
+                || nanoClock.getAsLong() >= permit.deadline()
+                || !sameEvidenceData(permit.snapshot(), data))
+            throw new IllegalArgumentException(
+                    "Explicit confirmation missing, expired or memory changed; preview again");
+        forgetPermits.remove(player);
+        return forgetGame(player, data, ids);
+    }
+
+    public CompletableFuture<Boolean> confirmForget(UUID player, UUID id, UUID token, String playerMessage) {
+        return gameTask(player, data -> confirmForget(player, data, List.of(id), token, playerMessage));
+    }
+
+    /** Legacy place/note tools use exactly the same preview, revision check and atomic deletion path. */
+    public CompletableFuture<String> forgetLegacy(
+            UUID player, UUID world, String selector, boolean place, UUID token, String playerMessage) {
         return gameTask(player, data -> {
-            var event = data.game().events().stream()
-                    .filter(e -> e.id().equals(id))
-                    .findFirst()
-                    .orElse(null);
-            if (event == null) {
-                return false;
-            }
-            var removed = data.game().events().stream()
-                    .filter(e -> e.id().equals(id)
-                            || (event.kind() != GameMemory.Kind.EPISODE && GameMemory.sameTopic(event, e)))
+            if (selector.isBlank()) throw new IllegalArgumentException("Empty selector");
+            var ids = data.game().events().stream()
+                    .filter(e -> place
+                            ? e.source() == GameMemory.Source.PLACE
+                                    && java.util.Objects.equals(e.world(), world)
+                                    && e.topic().equals(selector)
+                            : e.source() == GameMemory.Source.NOTE
+                                    && e.text()
+                                            .toLowerCase(java.util.Locale.ROOT)
+                                            .contains(selector.toLowerCase(java.util.Locale.ROOT)))
+                    .map(GameMemory.Event::id)
                     .toList();
-            if (removed.stream().anyMatch(e -> e.source() == GameMemory.Source.GOAL)) {
-                // 目标还存在于感知模块的运行状态，必须由 clear_goal 一并清除。
-                throw new IllegalArgumentException("Use clear_goal to forget the active crafting goal");
-            }
-            // 关联来源也必须删除，否则后续蒸馏会从笔记/地点重新生成它。
-            Data next = data.withLandmarks(data.landmarks().stream()
-                            .filter(l -> removed.stream()
-                                    .noneMatch(e -> e.source() == GameMemory.Source.PLACE
-                                            && l.world().equals(e.world())
-                                            && l.name().equals(e.topic())))
-                            .toList())
-                    .withNotes(data.notes().stream()
-                            .filter(n -> removed.stream()
-                                    .noneMatch(e -> e.source() == GameMemory.Source.NOTE
-                                            && n.createdAt() == e.occurredAt()
-                                            && n.text().equals(e.text())))
-                            .toList());
-            // 同一事实/计划/经验的旧版本一起删除，防止旧版本重新生效。
-            var retained = next.game().events().stream()
-                    .filter(e -> removed.stream().noneMatch(r -> r.id().equals(e.id())))
-                    .toList();
-            saveGame(player, next.withGame(GameMemory.distill(retained)));
-            return true;
+            if (token == null)
+                return "Deletion PREVIEW ONLY; nothing deleted. Show all affected records and request the exact player confirmation: "
+                        + gson.toJson(prepareForget(player, data, ids));
+            confirmForget(player, data, ids, token, playerMessage);
+            return "Memory and linked source records forgotten.";
         });
     }
 
+    public CompletableFuture<Boolean> forgetGame(UUID player, UUID id) {
+        return gameTask(
+                player,
+                data -> data.game().events().stream().noneMatch(e -> e.id().equals(id))
+                        ? false
+                        : forgetGame(player, data, List.of(id)));
+    }
+
+    private boolean forgetGame(UUID player, Data data, List<UUID> ids) {
+        var removed = affected(data, ids);
+        // 关联来源也必须删除，否则后续蒸馏会从笔记/地点重新生成它。
+        Data next = data.withLandmarks(data.landmarks().stream()
+                        .filter(l -> removed.stream()
+                                .noneMatch(e -> e.source() == GameMemory.Source.PLACE
+                                        && l.world().equals(e.world())
+                                        && l.name().equals(e.topic())))
+                        .toList())
+                .withNotes(data.notes().stream()
+                        .filter(n -> removed.stream()
+                                .noneMatch(e -> e.source() == GameMemory.Source.NOTE
+                                        && n.createdAt() == e.occurredAt()
+                                        && n.text().equals(e.text())))
+                        .toList());
+        // 同一事实/计划/经验的旧版本一起删除，防止旧版本重新生效。
+        var retained = next.game().events().stream()
+                .filter(e -> removed.stream().noneMatch(r -> r.id().equals(e.id())))
+                .toList();
+        saveGame(player, next.withGame(GameMemory.retain(GameMemory.distill(retained), data.game())));
+        forgetPermits.remove(player);
+        return true;
+    }
+
     public CompletableFuture<GameMemory.State> distillGame(UUID player) {
-        return gameTask(player, data -> {
-            if (!settings.distillation()) {
-                throw new IllegalStateException("Memory distillation is disabled");
-            }
-            saveGame(player, data);
-            return cache.get(player).game();
-        });
+        if (!settings.distillation() || distiller == null)
+            return CompletableFuture.failedFuture(
+                    new IllegalStateException("Semantic distillation unavailable or disabled"));
+        // Concurrent requests for one player share a bounded background job.
+        synchronized (distilling) {
+            var running = distilling.get(player);
+            if (running != null) return running;
+            CompletableFuture<GameMemory.State> result = new CompletableFuture<>();
+            distilling.put(player, result);
+            SemanticDistiller current = distiller;
+            gameTask(player, Data::game).whenComplete((snapshot, error) -> {
+                if (error != null) {
+                    result.completeExceptionally(error);
+                    return;
+                }
+                try {
+                    semantic.execute(() -> {
+                        try {
+                            var derived = current.distill(snapshot);
+                            gameTask(player, data -> {
+                                        if (distiller != current || !settings.distillation())
+                                            throw new IllegalStateException("Semantic provider changed or disabled");
+                                        if (!data.game().events().equals(snapshot.events())) throw new StaleEvidence();
+                                        saveGame(player, data.withGame(derived));
+                                        return cache.get(player).game();
+                                    })
+                                    .whenComplete((state, failure) -> {
+                                        if (failure == null) result.complete(state);
+                                        else result.completeExceptionally(failure);
+                                    });
+                        } catch (Exception failure) {
+                            result.completeExceptionally(failure);
+                        }
+                    });
+                } catch (RejectedExecutionException failure) {
+                    result.completeExceptionally(failure);
+                }
+            });
+            result.whenComplete((state, error) -> {
+                distilling.remove(player, result);
+                if (error instanceof StaleEvidence && distiller == current && settings.distillation())
+                    distillGame(player);
+            });
+            return result;
+        }
     }
 
     /** 精简上下文只附带与本次需求有关的证据，不把全部历史塞进每次对话。 */
@@ -316,9 +467,19 @@ public final class SpatialMemory implements AutoCloseable {
         for (var hit : recall.matches()) {
             String line = "\n" + gson.toJson(hit);
             if (out.length() + line.length() > settings.contextChars()) {
-                break;
+                var ref = new JsonObject();
+                ref.addProperty("evidence_id", hit.evidence().id().toString());
+                ref.addProperty("status", hit.status());
+                ref.addProperty(
+                        "notice", "Complete evidence omitted for budget; call recall_game_memory before using it.");
+                line = "\n" + gson.toJson(ref);
+                if (out.length() + line.length() > settings.contextChars()) break;
             }
             out.append(line);
+        }
+        for (var relation : recall.interpretations()) {
+            String line = "\nRelationship interpretation (not verified causation): " + gson.toJson(relation);
+            if (out.length() + line.length() <= settings.contextChars()) out.append(line);
         }
         if (recall.matches().isEmpty()) {
             out.append(" none matching this request; do not invent a memory.");
@@ -365,11 +526,13 @@ public final class SpatialMemory implements AutoCloseable {
                 if (!ready(player)) {
                     return;
                 }
-                Data next = mask(player, update.apply(mask(player, cache.get(player))));
+                Data previous = mask(player, cache.get(player));
+                Data next = mask(player, update.apply(previous));
                 next = next.withGame(GameMemory.synchronize(next, settings.distillation()));
                 write(player, next);
                 cache.put(player, mask(player, next));
                 index(player, next);
+                evidenceChanged(player, previous, next);
                 Set<Key> retained = new HashSet<>();
                 for (Landmark l : next.landmarks()) {
                     retained.add(new Key(player, l.world(), l.position()));
@@ -436,6 +599,27 @@ public final class SpatialMemory implements AutoCloseable {
     }
 
     /** 添加一条笔记；超出上限时先淘汰最旧的非 fact 笔记。 */
+    public CompletableFuture<Boolean> persistNote(UUID player, Note note) {
+        if (note.text() == null
+                || note.text().isBlank()
+                || note.text().length() > 200
+                || !Set.of("todo", "fact", "note").contains(note.kind()))
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Invalid note"));
+        return gameTask(player, data -> {
+            var notes = new ArrayList<>(data.notes());
+            notes.add(note);
+            while (notes.size() > MAX_NOTES) {
+                var oldest = notes.stream()
+                        .filter(n -> !n.kind().equals("fact"))
+                        .findFirst()
+                        .orElse(notes.getFirst());
+                notes.remove(oldest);
+            }
+            saveGame(player, data.withNotes(notes));
+            return true;
+        });
+    }
+
     public boolean addNote(UUID player, Note note) {
         if (note.text().isBlank() || note.text().length() > 200) {
             return false;
@@ -657,13 +841,13 @@ public final class SpatialMemory implements AutoCloseable {
         if (!Files.exists(path)) {
             return Data.empty();
         }
-        if (Files.size(path) > 1048576) {
+        if (Files.size(path) > 16 * 1048576) {
             throw new IOException("Oversized memory file");
         }
         JsonObject root = JsonParser.parseString(Files.readString(path, StandardCharsets.UTF_8))
                 .getAsJsonObject();
         int version = root.get("version").getAsInt();
-        if (version != 1 && version != 2) {
+        if (version != 1 && version != 2 && version != 3) {
             throw new IOException("Unsupported memory schema");
         }
         Data data = gson.fromJson(root.get("data"), Data.class);
@@ -704,7 +888,7 @@ public final class SpatialMemory implements AutoCloseable {
         Path target = folder.resolve(player + ".json");
         Path temp = Files.createTempFile(folder, "memory-", ".tmp");
         JsonObject root = new JsonObject();
-        root.addProperty("version", 2);
+        root.addProperty("version", 3);
         root.add("data", gson.toJsonTree(data));
         try {
             Files.writeString(temp, gson.toJson(root), StandardCharsets.UTF_8);
@@ -739,6 +923,10 @@ public final class SpatialMemory implements AutoCloseable {
 
     @Override
     public void close() {
+        distiller = null;
+        forgetPermits.clear();
+        semantic.shutdownNow();
+        distilling.values().forEach(f -> f.completeExceptionally(new java.util.concurrent.CancellationException()));
         io.shutdown();
         try {
             if (!io.awaitTermination(2, TimeUnit.SECONDS)) {

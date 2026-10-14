@@ -13,7 +13,9 @@ tools: add_note, list_notes, remove_note
 
 使用规则：
 
-- “记一下/帮我记住……”→ add_note，选合适的 kind。
+- “记一下/帮我记住……”→ add_note，选合适的 kind；text 必须为本次完整原话（最多 200 字符），保留否定与条件。更长消息用 remember_game_memory；禁止截取片段或把助手概括当原始证据。
 - “我有什么待办/你记得我什么”→ list_notes。
 - 待办完成或玩家要求删除时 remove_note。
 - 回答时自然地利用笔记（例如玩家喜欢中式建筑，设计时就用中式风格），不要每次都复述笔记。
+
+remove_note 先不带 token 预览全部匹配笔记并展示确认短语，预览不删除；仅当玩家下一条完整消息等于该短语才带 token 删除。token 绑定玩家、匹配集合及证据版本，五分钟内一次有效。

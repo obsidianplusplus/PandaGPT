@@ -68,7 +68,8 @@ class AgentRunnerTest {
         assertEquals("done", outcome.text());
         var messages = seen.get(1).messages();
         assertEquals("assistant", messages.get(1).role());
-        assertEquals(50, messages.get(2).content().length(), "tool results are truncated");
+        assertEquals(50, messages.get(2).content().length(), "tool results are bounded");
+        assertTrue(messages.get(2).content().contains("TRUNCATED"));
         assertEquals("saw", messages.get(3).content());
         assertTrue(messages.get(4).content().startsWith("ERROR"), "unknown tools become error results");
         assertSame(image, messages.get(5).image());

@@ -25,7 +25,7 @@ public final class JournalTools {
 
     public static List<AgentTool> create(ChatGPTIntegration plugin) {
         return List.of(
-                AgentTool.of(
+                AgentTool.readOnlyOf(
                         "last_death",
                         "Where, when and how the player last died, what they dropped and whether the drops may still "
                                 + "be on the ground (items despawn after 5 minutes).",
@@ -51,7 +51,7 @@ public final class JournalTools {
                                             : ". Drops have most likely despawned.")
                                     + " Use guide_to with target 'death' to lead the player there.");
                         }),
-                AgentTool.of(
+                AgentTool.readOnlyOf(
                         "player_statistics",
                         "Lifetime statistics and the change since the player joined this session: play time, deaths, "
                                 + "kills, distances, fishing, breeding, trading and ores mined.",
@@ -70,7 +70,7 @@ public final class JournalTools {
                             out.append("PLAY_ONE_MINUTE is in ticks (20 per second); *_ONE_CM values are centimetres.");
                             return ToolResult.ok(out.toString());
                         }),
-                AgentTool.of(
+                AgentTool.readOnlyOf(
                         "advancement_progress",
                         "Advancements the player has not finished yet, closest to completion first, with remaining "
                                 + "criteria. Use it to suggest what to do next.",
@@ -78,13 +78,16 @@ public final class JournalTools {
                         p -> true,
                         null,
                         (context, args) -> ToolResult.ok(advancements(context.player(), Schema.text(args, "filter")))),
-                AgentTool.of(
+                AgentTool.async(
                         "add_note",
                         "Save a personal note for the player: a to-do, a fact about them (preferences, play style) or "
                                 + "a general note. Notes persist and appear in your context in later conversations. "
-                                + "Only on request or when the player clearly states a lasting preference.",
+                                + "Only on request or clear lasting preference. Text must be the COMPLETE current player message, verbatim (max 200 chars); for longer messages use remember_game_memory.",
                         object(
-                                string("text", "Note text in the player's language, at most 200 characters", true),
+                                string(
+                                        "text",
+                                        "Complete current player message, verbatim, at most 200 characters",
+                                        true),
                                 choice("kind", "Note kind", false, "todo", "fact", "note")),
                         p -> plugin.memory() != null,
                         ToolSupport.activity("memory"),
@@ -93,22 +96,33 @@ public final class JournalTools {
                             if (!List.of("todo", "fact", "note").contains(kind)) {
                                 kind = "note";
                             }
-                            boolean saved = plugin.memory()
-                                    .addNote(
+                            String text = args.has("text") && args.get("text").isJsonPrimitive()
+                                    ? args.get("text").getAsString()
+                                    : "";
+                            if (context.turn().kind() != cn.panda.pandagpt.agent.AgentTurn.Kind.CONVERSATION
+                                    || text.isBlank()
+                                    || !text.equals(context.turn().playerEvidence()))
+                                return java.util.concurrent.CompletableFuture.completedFuture(
+                                        ToolResult.error(
+                                                "Notes must preserve the complete current player message; no substring or assistant interpretation."));
+                            return plugin.memory()
+                                    .persistNote(
                                             context.player().getUniqueId(),
                                             new SpatialMemory.Note(
-                                                    Schema.text(args, "text"),
+                                                    text,
                                                     kind,
                                                     plugin.features() == null
                                                             ? System.currentTimeMillis()
                                                             : plugin.features()
                                                                     .clock()
-                                                                    .millis()));
-                            return saved
-                                    ? ToolResult.ok("Note saved.")
-                                    : ToolResult.error("Note is empty or too long.");
+                                                                    .millis()))
+                                    .handle(
+                                            (saved, error) -> error == null
+                                                    ? ToolResult.ok("Note persisted.")
+                                                    : ToolResult.error(
+                                                            "Note could not be persisted; for messages over 200 chars use remember_game_memory."));
                         }),
-                AgentTool.of(
+                AgentTool.readOnlyOf(
                         "list_notes",
                         "All of the player's saved notes with their numbers.",
                         object(),
@@ -128,32 +142,17 @@ public final class JournalTools {
                             }
                             return ToolResult.ok(String.join("\n", lines));
                         }),
-                AgentTool.of(
+                AgentTool.async(
                         "remove_note",
-                        "Delete notes containing the given text (e.g. when a to-do is done or the player asks).",
-                        object(string("contains", "Text that the notes to delete contain", true)),
-                        p -> plugin.memory() != null,
+                        "Preview deleting notes containing this text; show ALL affected records and the exact confirmation phrase. "
+                                + "Use token only after the player sends that phrase as the complete current message. Never deletes without confirmation.",
+                        object(
+                                string("contains", "Text to match", true),
+                                string("token", "One-use preview token; omit to preview", false)),
+                        p -> plugin.memory() != null
+                                && plugin.memory().settings().enabled(),
                         null,
-                        (context, args) -> {
-                            String needle = Schema.text(args, "contains").toLowerCase(Locale.ROOT);
-                            if (needle.isEmpty()) {
-                                return ToolResult.error("Give some text to match.");
-                            }
-                            long matches = plugin.memory().view(context.player().getUniqueId()).notes().stream()
-                                    .filter(n ->
-                                            n.text().toLowerCase(Locale.ROOT).contains(needle))
-                                    .count();
-                            if (matches == 0) {
-                                return ToolResult.error("No note contains that text.");
-                            }
-                            plugin.memory()
-                                    .removeNotes(
-                                            context.player().getUniqueId(),
-                                            n -> n.text()
-                                                    .toLowerCase(Locale.ROOT)
-                                                    .contains(needle));
-                            return ToolResult.ok("Removed " + matches + " note(s).");
-                        }));
+                        (context, args) -> MemoryTools.forgetLegacy(plugin, context, args, false)));
     }
 
     // 未完成的成就按完成比例排序；跳过配方类与没有显示信息的隐藏成就。

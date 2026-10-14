@@ -15,6 +15,7 @@ import org.bukkit.configuration.file.FileConfiguration;
  * @param maxToolResultChars 单个工具结果交给模型前的截断长度
  * @param disabledSkills 服主关闭的技能
  * @param proactive 主动建议是否由 Agent 生成
+ * @param maxParallelReads 独立只读工具最多同时等待的数量；写入工具构成执行边界
  */
 public record AgentSettings(
         int maxSteps,
@@ -22,7 +23,18 @@ public record AgentSettings(
         int turnTimeoutSeconds,
         int maxToolResultChars,
         Set<String> disabledSkills,
-        boolean proactive) {
+        boolean proactive,
+        int maxParallelReads) {
+
+    public AgentSettings(
+            int maxSteps,
+            int maxToolCalls,
+            int turnTimeoutSeconds,
+            int maxToolResultChars,
+            Set<String> disabledSkills,
+            boolean proactive) {
+        this(maxSteps, maxToolCalls, turnTimeoutSeconds, maxToolResultChars, disabledSkills, proactive, 3);
+    }
 
     public static AgentSettings load(FileConfiguration c) {
         return new AgentSettings(
@@ -33,7 +45,8 @@ public record AgentSettings(
                 c.getStringList("panda.agent.disabled_skills").stream()
                         .map(s -> s.strip().toLowerCase(Locale.ROOT))
                         .collect(Collectors.toUnmodifiableSet()),
-                c.getBoolean("panda.agent.proactive", true));
+                c.getBoolean("panda.agent.proactive", true),
+                number(c, "max_parallel_reads", 3, 1, 8));
     }
 
     private static int number(FileConfiguration c, String name, int fallback, int min, int max) {

@@ -27,4 +27,4 @@ tools: remember_place, forget_place, list_places, locate_place
 
 ## 忘记
 
-“忘掉 X”→ forget_place；名称不确定时先 list_places 确认。
+“忘掉 X”→ 先 list_places 确认名称，再调用 forget_place（不带 token）预览并展示全部受影响记录及确认短语。预览不会删除；玩家下一条完整消息等于确认短语时才带 token 调用。五分钟内有效；记忆变化或重载后重新预览。

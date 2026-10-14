@@ -41,14 +41,14 @@ public final class GoalTools {
                         null,
                         (context, args) ->
                                 ToolSupport.result(plugin.perception().clearGoal(context.player()))),
-                AgentTool.of(
+                AgentTool.readOnlyOf(
                         "goal_status",
                         "The tracked goal and its verified progress.",
                         object(),
                         p -> ToolSupport.perception(plugin),
                         null,
                         (context, args) -> ToolResult.ok(plugin.perception().goalStatus(context.player()))),
-                AgentTool.of(
+                AgentTool.readOnlyOf(
                         "find_recipes",
                         "Real crafting recipes registered on this server for an item, and whether the player's "
                                 + "inventory already matches each one.",
@@ -59,7 +59,7 @@ public final class GoalTools {
                                 plugin.recipes(),
                                 GoalProgress.normalize(Schema.text(args, "item")),
                                 context.player().getInventory().getStorageContents()))),
-                AgentTool.of(
+                AgentTool.readOnlyOf(
                         "craftable_now",
                         "Recipes the player can craft right now from their storage inventory (bounded sample).",
                         object(),

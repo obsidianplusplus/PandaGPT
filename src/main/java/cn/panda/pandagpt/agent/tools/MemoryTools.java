@@ -27,7 +27,7 @@ public final class MemoryTools {
                 AgentTool.async(
                         "remember_game_memory",
                         "Save a game experience, lasting fact/preference, plan or lesson explicitly stated by this player. "
-                                + "Text must be an exact quote from the CURRENT player message (max 400 chars), never your answer. "
+                                + "Text must be the COMPLETE CURRENT player message (max 4000 chars), including negation and conditions. "
                                 + "Use the same topic to update a fact/plan/lesson; resolved closes a plan. Only on request or clear lasting preference.",
                         object(
                                 choice(
@@ -39,7 +39,10 @@ public final class MemoryTools {
                                         "plan",
                                         "lesson"),
                                 string("topic", "Stable short key for this particular thing, max 64 chars", true),
-                                string("text", "Exact quote from this player's current message, max 400 chars", true),
+                                string(
+                                        "text",
+                                        "Complete current player message, verbatim, max 4000 chars; never extract a substring",
+                                        true),
                                 string(
                                         "cues",
                                         "Optional retrieval keywords separated by commas; at most 8, each max 64 chars",
@@ -59,12 +62,15 @@ public final class MemoryTools {
                         p -> available(plugin),
                         ToolSupport.activity("memory"),
                         (context, args) -> {
-                            String text = Schema.text(args, "text");
+                            String text = args.has("text") && args.get("text").isJsonPrimitive()
+                                    ? args.get("text").getAsString()
+                                    : "";
                             if (context.turn().kind() != AgentTurn.Kind.CONVERSATION
                                     || text.isBlank()
-                                    || !context.turn().playerEvidence().contains(text)) {
+                                    || !context.turn().playerEvidence().equals(text)) {
                                 return CompletableFuture.completedFuture(
-                                        ToolResult.error("Memory must quote the current player's message exactly."));
+                                        ToolResult.error(
+                                                "Memory must preserve the COMPLETE current player message, including negation and conditions."));
                             }
                             GameMemory.Kind kind = kind(Schema.text(args, "kind"));
                             if (kind == null
@@ -106,13 +112,16 @@ public final class MemoryTools {
                                             : ToolResult.error(
                                                     "Memory could not be saved; do not claim it was remembered."));
                         }),
-                AgentTool.async(
+                AgentTool.readOnlyAsync(
                         "recall_game_memory",
                         "Find the correct past game event/fact/plan/lesson when the player needs it. Also searches existing places, notes and goal. "
-                                + "Use specific keywords in the player's language. Returns original evidence, source, time, world and status. "
+                                + "Use specific keywords in the player's language. Returns original evidence, source, time, world and status, plus evidence-linked semantic interpretations and relationships when ready. "
                                 + "Historical, expired, resolved or needs_verification results are not proof of current world state. No match means unknown.",
                         object(
-                                string("query", "What the player needs to recover; max 200 chars", true),
+                                string(
+                                        "query",
+                                        "Specific keywords or exact evidence UUID (UUID returns one complete record without relation expansion); max 200 chars",
+                                        true),
                                 choice("kind", "Optional category", false, "episode", "fact", "plan", "lesson"),
                                 bool("all_worlds", "Search other worlds only when the player requests it"),
                                 bool(
@@ -135,14 +144,14 @@ public final class MemoryTools {
                                             Schema.flag(args, "include_history"),
                                             now(plugin))
                                     .handle((recall, error) -> error == null
-                                            ? ToolResult.ok(JSON.toJson(recall))
+                                            ? ToolResult.ok(recallResult(plugin, recall))
                                             : ToolResult.error("Game memory unavailable; do not infer a past event."));
                         }),
                 AgentTool.async(
                         "distill_memory",
-                        "Run independent episodes, facts, plans and lessons pipelines over this player's own evidence. "
-                                + "Each pipeline deduplicates within its own scope and keeps source IDs. Never invents facts or deletes raw evidence. "
-                                + "Automatic after memory changes; call when the player requests memory organization.",
+                        "Run a separate semantic model pass over this player's original evidence, producing grounded meanings and relationships "
+                                + "between game experiences, plans and lessons. Summaries/links are interpretations with evidence IDs; raw evidence is preserved. "
+                                + "Call on memory organization requests or when new experiences need relating. May fail if evidence changed; retry then.",
                         object(),
                         p -> available(plugin) && plugin.memory().settings().distillation(),
                         ToolSupport.activity("memory"),
@@ -151,15 +160,18 @@ public final class MemoryTools {
                                 .handle((state, error) -> error == null
                                         ? ToolResult.ok("Memory distillation persisted: "
                                                 + state.events().size() + " evidence records, "
-                                                + state.cards().size() + " cards across episodes/facts/plans/lessons.")
+                                                + state.meanings().size() + " semantic interpretations, "
+                                                + state.relations().size() + " experience relationships.")
                                         : ToolResult.error(
                                                 "Memory distillation failed; previous evidence preserved."))),
                 AgentTool.async(
                         "forget_game_memory",
-                        "Forget a memory by its evidence ID from recall_game_memory, only on the player's request. "
-                                + "Also removes superseded versions of that fact/plan/lesson and linked places/notes to prevent resurrection. "
-                                + "For the current crafting goal use clear_goal.",
-                        object(string("id", "Exact evidence UUID from recall_game_memory", true)),
+                        "Preview deletion using an evidence ID. Without token this does NOT delete: return the affected evidence and exact confirmation phrase to the player. "
+                                + "Delete only in a NEW conversation turn whose complete player message equals that phrase, using the issued token and same ID. "
+                                + "Token is one-use, bound to player and memory revision, expires in five minutes. For crafting goals use clear_goal.",
+                        object(
+                                string("id", "Exact evidence UUID from recall_game_memory", true),
+                                string("token", "Preview token; omit to preview deletion", false)),
                         p -> available(plugin),
                         null,
                         (context, args) -> {
@@ -169,15 +181,102 @@ public final class MemoryTools {
                             } catch (IllegalArgumentException e) {
                                 return CompletableFuture.completedFuture(ToolResult.error("Invalid evidence ID."));
                             }
+                            if (context.turn().kind() != AgentTurn.Kind.CONVERSATION)
+                                return CompletableFuture.completedFuture(
+                                        ToolResult.error("Deletion requires a player conversation."));
+                            String tokenText = Schema.text(args, "token");
+                            if (tokenText.isBlank()) {
+                                return plugin.memory()
+                                        .prepareForget(context.player().getUniqueId(), id)
+                                        .handle(
+                                                (preview, error) -> error == null
+                                                        ? ToolResult.ok(
+                                                                "Deletion PREVIEW ONLY; nothing deleted. Show all affected records and ask the player to send the confirmation phrase: "
+                                                                        + JSON.toJson(preview))
+                                                        : ToolResult.error(
+                                                                "Cannot preview this deletion; use clear_goal for crafting goals."));
+                            }
+                            UUID token;
+                            try {
+                                token = UUID.fromString(tokenText);
+                            } catch (IllegalArgumentException e) {
+                                return CompletableFuture.completedFuture(
+                                        ToolResult.error("Invalid confirmation token."));
+                            }
                             return plugin.memory()
-                                    .forgetGame(context.player().getUniqueId(), id)
+                                    .confirmForget(
+                                            context.player().getUniqueId(),
+                                            id,
+                                            token,
+                                            context.turn().playerEvidence())
                                     .handle((removed, error) -> error != null
                                             ? ToolResult.error(
-                                                    "Could not forget this memory; use clear_goal for crafting goals.")
+                                                    "Deletion not authorized or failed: confirmation missing/expired or memory changed; preview again.")
                                             : removed
                                                     ? ToolResult.ok("Memory and its superseded versions forgotten.")
                                                     : ToolResult.error("Memory ID not found."));
                         }));
+    }
+
+    private static String recallResult(ChatGPTIntegration plugin, GameMemory.Recall recall) {
+        int budget =
+                plugin.settings() == null ? 6000 : plugin.settings().agent().maxToolResultChars();
+        String complete = JSON.toJson(recall);
+        if (complete.length() <= budget) return complete;
+        var root = new com.google.gson.JsonObject();
+        root.addProperty("outcome", "evidence_requires_id_lookup");
+        root.addProperty(
+                "notice",
+                "References only, no partial quotes. Query an exact evidence UUID for one complete record. If that record exceeds budget, increase max_tool_result_chars.");
+        var references = new com.google.gson.JsonArray();
+        root.add("references", references);
+        int omitted = recall.matches().size();
+        root.addProperty("omitted_references", omitted);
+        for (var hit : recall.matches()) {
+            var ref = new com.google.gson.JsonObject();
+            ref.addProperty("evidence_id", hit.evidence().id().toString());
+            ref.addProperty("topic", hit.evidence().topic());
+            ref.addProperty("status", hit.status());
+            references.add(ref);
+            root.addProperty("omitted_references", --omitted);
+            if (JSON.toJson(root).length() > budget) {
+                references.remove(references.size() - 1);
+                root.addProperty("omitted_references", ++omitted);
+                break;
+            }
+        }
+        return JSON.toJson(root);
+    }
+
+    static CompletableFuture<ToolResult> forgetLegacy(
+            ChatGPTIntegration plugin,
+            cn.panda.pandagpt.agent.ToolContext context,
+            com.google.gson.JsonObject args,
+            boolean place) {
+        if (context.turn().kind() != AgentTurn.Kind.CONVERSATION)
+            return CompletableFuture.completedFuture(ToolResult.error("Deletion requires a player conversation."));
+        UUID token = null;
+        String value = Schema.text(args, "token");
+        if (!value.isBlank()) {
+            try {
+                token = UUID.fromString(value);
+            } catch (IllegalArgumentException e) {
+                return CompletableFuture.completedFuture(ToolResult.error("Invalid confirmation token."));
+            }
+        }
+        return plugin.memory()
+                .forgetLegacy(
+                        context.player().getUniqueId(),
+                        context.player().getWorld().getUID(),
+                        Schema.text(args, place ? "name" : "contains"),
+                        place,
+                        token,
+                        context.turn().playerEvidence())
+                .handle(
+                        (result, error) -> error == null
+                                ? ToolResult.ok(result)
+                                : ToolResult.error(
+                                        "Deletion not authorized or failed; preview again and obtain the exact player confirmation."));
     }
 
     private static boolean available(ChatGPTIntegration plugin) {

@@ -34,7 +34,7 @@ class MemoryToolsTest {
             when(plugin.memory()).thenReturn(memory);
             var tool = MemoryTools.create(plugin).getFirst();
             var args = JsonParser.parseString(
-                            "{\"kind\":\"fact\",\"topic\":\"建筑风格\",\"text\":\"喜欢中式建筑\",\"scope\":\"global\"}")
+                            "{\"kind\":\"fact\",\"topic\":\"建筑风格\",\"text\":\"以后记住我喜欢中式建筑\",\"scope\":\"global\"}")
                     .getAsJsonObject();
             var context =
                     new ToolContext(player, new AgentTurn(id, AgentTurn.Kind.CONVERSATION, "以后记住我喜欢中式建筑"), "zh_CN");
@@ -43,7 +43,7 @@ class MemoryToolsTest {
             args.addProperty("text", "害怕下界");
             assertTrue(
                     tool.call(context, args).get(5, TimeUnit.SECONDS).content().startsWith("ERROR:"));
-            args.addProperty("text", "喜欢中式建筑");
+            args.addProperty("text", "以后记住我喜欢中式建筑");
             var proactive = new ToolContext(player, new AgentTurn(id, AgentTurn.Kind.PROACTIVE, "喜欢中式建筑"), "zh_CN");
             assertTrue(tool.call(proactive, args)
                     .get(5, TimeUnit.SECONDS)

@@ -47,6 +47,8 @@ class GameMemoryPersistenceTest {
             assertEquals(1, recalled.matches().size());
             assertEquals(newest, recalled.matches().getFirst().evidence().id());
             assertTrue(memory.forgetGame(player, newest).get(5, TimeUnit.SECONDS));
+            memory.setDistiller(new SemanticDistiller(
+                    request -> new cn.panda.pandagpt.ai.AiResponse("{\"meanings\":[],\"relations\":[]}")));
             memory.distillGame(player).get(5, TimeUnit.SECONDS);
             assertEquals(
                     "no_match",
@@ -108,6 +110,8 @@ class GameMemoryPersistenceTest {
             assertTrue(memory.forgetGame(
                             player, recall.matches().getFirst().evidence().id())
                     .get(5, TimeUnit.SECONDS));
+            memory.setDistiller(new SemanticDistiller(
+                    request -> new cn.panda.pandagpt.ai.AiResponse("{\"meanings\":[],\"relations\":[]}")));
             memory.distillGame(player).get(5, TimeUnit.SECONDS);
             assertTrue(memory.view(player).landmarks().isEmpty());
             assertEquals(
@@ -163,6 +167,8 @@ class GameMemoryPersistenceTest {
                     () -> memory.recallGame(player, null, "中式", null, false, false, 10)
                             .get(5, TimeUnit.SECONDS));
             memory.configure(MemorySettings.defaults());
+            memory.setDistiller(new SemanticDistiller(
+                    request -> new cn.panda.pandagpt.ai.AiResponse("{\"meanings\":[],\"relations\":[]}")));
             memory.distillGame(player).get(5, TimeUnit.SECONDS);
             assertEquals(
                     "facts",

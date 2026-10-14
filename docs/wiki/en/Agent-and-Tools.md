@@ -105,10 +105,10 @@ Tools are grouped by skill. **A tool is offered to the model only if an enabled 
 
 | Tool | Purpose |
 |---|---|
-| `remember_game_memory` | Persist experiences, facts, plans or lessons quoting the current player message |
+| `remember_game_memory` | Persist experiences, facts, plans or lessons preserving the complete current player message |
 | `recall_game_memory` | Retrieve relevant evidence with source, world, time and validity |
-| `distill_memory` | Independent evidence-preserving pipelines for events, facts, plans and lessons |
-| `forget_game_memory` | Delete evidence, linked sources and superseded versions |
+| `distill_memory` | Background semantic summaries and experience relationships with original evidence references |
+| `forget_game_memory` | Preview then delete with a player/revision-bound token and exact player confirmation |
 
 See [Game Memory & Distillation](Game-Memory.md).
 

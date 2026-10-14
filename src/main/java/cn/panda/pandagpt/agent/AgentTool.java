@@ -13,6 +13,11 @@ import org.bukkit.entity.Player;
  * <p>线程：{@link #available} 与 {@link #call} 都在服务器主线程执行；需要等待多个 tick 的工具返回稍后完成的 future。
  */
 public interface AgentTool {
+    /** Only independent reads may overlap; all other tools form an execution barrier. */
+    default boolean independentRead() {
+        return false;
+    }
+
     String name();
 
     /** 给模型看的用途说明（英文，便于模型理解）。 */
@@ -40,6 +45,58 @@ public interface AgentTool {
         function.addProperty("description", description());
         function.add("parameters", parameters());
         return function;
+    }
+
+    static AgentTool readOnly(AgentTool delegate) {
+        return new AgentTool() {
+            public String name() {
+                return delegate.name();
+            }
+
+            public String description() {
+                return delegate.description();
+            }
+
+            public JsonObject parameters() {
+                return delegate.parameters();
+            }
+
+            public boolean available(Player player) {
+                return delegate.available(player);
+            }
+
+            public Msg activity() {
+                return delegate.activity();
+            }
+
+            public boolean independentRead() {
+                return true;
+            }
+
+            public CompletableFuture<ToolResult> call(ToolContext context, JsonObject args) {
+                return delegate.call(context, args);
+            }
+        };
+    }
+
+    static AgentTool readOnlyOf(
+            String name,
+            String description,
+            JsonObject parameters,
+            Predicate<Player> available,
+            Msg activity,
+            BiFunction<ToolContext, JsonObject, ToolResult> body) {
+        return readOnly(of(name, description, parameters, available, activity, body));
+    }
+
+    static AgentTool readOnlyAsync(
+            String name,
+            String description,
+            JsonObject parameters,
+            Predicate<Player> available,
+            Msg activity,
+            BiFunction<ToolContext, JsonObject, CompletableFuture<ToolResult>> body) {
+        return readOnly(async(name, description, parameters, available, activity, body));
     }
 
     /** 同步工具的便捷构造。 */

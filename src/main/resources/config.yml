@@ -5,6 +5,7 @@ panda:
     per_player: true # 按玩家客户端语言显示消息；关闭后所有人使用默认语言。
   agent:
     max_steps: 8 # 每次对话最多请求模型的次数；Agent 会在其中自行调用工具、查看结果、再决定下一步。
+    max_parallel_reads: 3 # 独立只读工具最多同时等待的数量（1–8）；写入工具仍串行。
     max_tool_calls: 16 # 每次对话最多执行的工具调用数。
     turn_timeout_seconds: 120 # 每次对话的总时长上限，包含全部模型请求与工具执行（例如等待视觉采样）。
     max_tool_result_chars: 6000 # 单个工具结果交给模型前的截断长度。
@@ -22,7 +23,8 @@ panda:
   max_output_tokens: 1000
   memory:
     enabled: true # 游戏记忆与按需召回；独立于视觉/感知开关，地点、笔记、目标也会接入检索。
-    distillation: true # 事件/事实/计划/经验四条独立提取流程；保留原始证据，不调用额外模型。
+    distillation: true # 原始索引 + 后台语义摘要与经历关系；会增加模型请求，保留原始证据。
+    distill_output_tokens: 4096 # 蒸馏模型输出预算（512–8192），独立于聊天的 max_output_tokens。
     recall_limit: 6 # 一次最多返回的相关记忆，1–12；无匹配时明确返回未知。
     context_chars: 1800 # 每次提问附带的相关记忆字符预算，256–4000；完整证据由工具按需读取。
   perception:

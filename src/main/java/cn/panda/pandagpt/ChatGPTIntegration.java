@@ -256,6 +256,11 @@ public final class ChatGPTIntegration extends JavaPlugin {
         PerceptionController previousPerception = perception;
         memory.setLimit(next.perception().maxPlayers());
         memory.configure(next.memory());
+        memory.setDistiller(
+                next.apiKey().isBlank()
+                        ? null
+                        : new cn.panda.pandagpt.memory.SemanticDistiller(
+                                provider, next.memory().distillOutputTokens()));
         Messages.install(messages);
         service = replacement;
         this.recipes = recipes;

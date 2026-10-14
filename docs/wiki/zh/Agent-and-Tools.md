@@ -105,10 +105,10 @@ panda:
 
 | 工具 | 用途 |
 |---|---|
-| `remember_game_memory` | 保存玩家明确表达的经历、事实、计划或经验，正文必须引用本次原话 |
+| `remember_game_memory` | 保存玩家明确表达的经历、事实、计划或经验，正文必须保存本次完整原话 |
 | `recall_game_memory` | 按需求检索原始证据，标明来源、世界、时间与有效性 |
-| `distill_memory` | 独立处理事件、事实、计划、经验，保留证据引用 |
-| `forget_game_memory` | 删除记忆、关联原始记录与同主题旧版本 |
+| `distill_memory` | 后台语义摘要与经历关系，保留原始证据与引用 |
+| `forget_game_memory` | 预览范围后凭玩家完整确认短语删除，token 绑定玩家与证据版本 |
 
 详见[游戏记忆与记忆蒸馏](Game-Memory.md)。
 

@@ -31,8 +31,9 @@ See [Languages](Languages.md).
 |---|---|---|---|
 | `panda.agent.max_steps` | 8 | 1–16 | Model requests per turn |
 | `panda.agent.max_tool_calls` | 16 | 1–48 | Tool calls per turn |
+| `panda.agent.max_parallel_reads` | 3 | 1–8 | Concurrent independent reads; writes and unmarked tools remain sequential |
 | `panda.agent.turn_timeout_seconds` | 120 | 10–600 | Total time per turn, including all model requests and tools |
-| `panda.agent.max_tool_result_chars` | 6000 | 500–32000 | Truncation length of one tool result |
+| `panda.agent.max_tool_result_chars` | 6000 | 500–32000 | Tool result budget; oversized memory evidence is rejected, other truncation is labeled |
 | `panda.agent.proactive` | `true` | | Agent decides and words proactive tips; off uses built-in text |
 | `panda.agent.disabled_skills` | `[]` | | Disabled skills, e.g. `[commands, vision]` |
 
@@ -82,7 +83,8 @@ All 15 providers are listed in [Model Providers](Model-Providers.md). Keys can a
 | Key | Default | Meaning |
 |---|---|---|
 | `panda.memory.enabled` | `true` | Game evidence and on-demand recall, independent of vision/perception |
-| `panda.memory.distillation` | `true` | Four independent extractive pipelines without extra model calls |
+| `panda.memory.distillation` | `true` | Independent indexes plus background semantic summaries/relationships; additional model requests |
+| `panda.memory.distill_output_tokens` | 4096 | Semantic output budget, 512–8192 tokens, separate from chat |
 | `panda.memory.recall_limit` | 6 | At most 1–12 relevant results per retrieval |
 | `panda.memory.context_chars` | 1800 | Relevant-memory context budget, 256–4000 characters |
 

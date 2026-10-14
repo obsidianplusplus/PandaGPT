@@ -59,6 +59,42 @@ class HttpAiProviderTest {
     }
 
     @Test
+    void semanticOutputBudgetIsSeparateFromChatAcrossAllWireFormats() {
+        var semantic = new AiRequest("s", List.of(Message.user("evidence")), List.of(), true, 4096);
+        var chat = new AiRequest("s", List.of(Message.user("chat")));
+        for (String id : List.of("openai", "anthropic", "gemini")) {
+            var settings = provider(id, Map.of("panda.max_output_tokens", 1000));
+            var semanticBody = JsonParser.parseString(HttpAiProvider.buildBody(settings, semantic))
+                    .getAsJsonObject();
+            var chatBody = JsonParser.parseString(HttpAiProvider.buildBody(settings, chat))
+                    .getAsJsonObject();
+            int semanticTokens = id.equals("gemini")
+                    ? semanticBody
+                            .getAsJsonObject("generationConfig")
+                            .get("maxOutputTokens")
+                            .getAsInt()
+                    : semanticBody
+                            .get(
+                                    id.equals("anthropic")
+                                            ? "max_tokens"
+                                            : settings.provider().maxTokensField())
+                            .getAsInt();
+            int chatTokens = id.equals("gemini")
+                    ? chatBody.getAsJsonObject("generationConfig")
+                            .get("maxOutputTokens")
+                            .getAsInt()
+                    : chatBody.get(
+                                    id.equals("anthropic")
+                                            ? "max_tokens"
+                                            : settings.provider().maxTokensField())
+                            .getAsInt();
+            assertEquals(4096, semanticTokens);
+            assertEquals(1000, chatTokens);
+        }
+        assertThrows(IllegalArgumentException.class, () -> new AiRequest("s", List.of(), List.of(), true, 8193));
+    }
+
+    @Test
     void openAiMultiStepToolConversationUsesNativeToolMessages() {
         var body = JsonParser.parseString(HttpAiProvider.buildBody(openai(), agentTurn(false)))
                 .getAsJsonObject();

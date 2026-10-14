@@ -104,14 +104,37 @@ public final class AgentRunner {
             }
             messages.add(Message.assistant(response.text(), response.toolCalls(), response.signature()));
             AiRequest.Image image = null;
-            for (ToolCall call : response.toolCalls()) {
-                ToolResult result = ++calls > settings.maxToolCalls()
-                        ? ToolResult.error("Tool call budget for this turn is exhausted; answer with what you know.")
-                        : execute(plan, call, deadline);
-                messages.add(Message.tool(call, FormatUtil.truncate(result.content(), settings.maxToolResultChars())));
-                if (result.image() != null) {
-                    image = result.image();
+            List<ToolCall> batch = response.toolCalls();
+            for (int at = 0; at < batch.size(); ) {
+                int end = at + 1;
+                AgentTool first = plan.tools().get(batch.get(at).name());
+                if (first != null && first.independentRead()) {
+                    while (end < batch.size() && end - at < settings.maxParallelReads()) {
+                        AgentTool next = plan.tools().get(batch.get(end).name());
+                        if (next == null || !next.independentRead()) break;
+                        end++;
+                    }
                 }
+                List<CompletableFuture<ToolResult>> pending = new ArrayList<>();
+                try {
+                    for (int i = at; i < end; i++) {
+                        pending.add(
+                                ++calls > settings.maxToolCalls()
+                                        ? CompletableFuture.completedFuture(
+                                                ToolResult.error("Tool budget exhausted; answer now."))
+                                        : start(plan, batch.get(i), deadline));
+                    }
+                    for (int i = at; i < end; i++) {
+                        ToolResult result = await(plan, pending.get(i - at), deadline);
+                        messages.add(Message.tool(batch.get(i), boundedResult(batch.get(i), result)));
+                        if (result.image() != null) image = result.image();
+                    }
+                } finally {
+                    pending.forEach(f -> {
+                        if (!f.isDone()) f.cancel(true);
+                    });
+                }
+                at = end;
             }
             // 工具消息只能承载文字，图片以紧随其后的用户消息附上。
             if (image != null) {
@@ -123,45 +146,82 @@ public final class AgentRunner {
         }
     }
 
-    private ToolResult execute(Plan plan, ToolCall call, long deadline) throws InterruptedException {
+    private String boundedResult(ToolCall call, ToolResult result) {
+        int max = settings.maxToolResultChars();
+        if (result.content().length() <= max) return result.content();
+        // Evidence and deletion previews must never silently lose negation, scope or affected records.
+        if (call.name().contains("memory")
+                || call.name().equals("forget_place")
+                || call.name().equals("remove_note")
+                || call.name().equals("list_notes"))
+            return FormatUtil.truncate(
+                    "ERROR: Complete memory evidence/preview exceeds tool result budget. Narrow the query or increase max_tool_result_chars; no partial evidence is supplied.",
+                    max);
+        String marker = " [TRUNCATED: missing context is unknown]";
+        return FormatUtil.truncate(result.content(), Math.max(0, max - marker.length())) + marker;
+    }
+
+    private CompletableFuture<ToolResult> start(Plan plan, ToolCall call, long deadline) {
         JsonObject args;
         try {
             args = call.arguments().isBlank()
                     ? new JsonObject()
                     : JsonParser.parseString(call.arguments()).getAsJsonObject();
         } catch (JsonParseException | IllegalStateException e) {
-            return ToolResult.error("Arguments must be a JSON object.");
+            return CompletableFuture.completedFuture(ToolResult.error("Arguments must be a JSON object."));
         }
         if (call.name().equals(LOAD_SKILL)) {
             Skill skill = skills.get(Schema.text(args, "name"));
-            return skill == null
-                    ? ToolResult.error("Unknown skill. Use a name from the loadable skills list.")
-                    : ToolResult.ok(skill.instructions());
+            return CompletableFuture.completedFuture(
+                    skill == null
+                            ? ToolResult.error("Unknown skill. Use a name from the loadable skills list.")
+                            : ToolResult.ok(skill.instructions()));
         }
         AgentTool tool = plan.tools().get(call.name());
         if (tool == null) {
-            return ToolResult.error("Tool " + call.name() + " is not available to this player right now.");
+            return CompletableFuture.completedFuture(
+                    ToolResult.error("Tool " + call.name() + " is not available to this player right now."));
         }
-        CompletableFuture<ToolResult> future = main.submit(() -> {
-            Player player = players.apply(plan.turn().player());
-            if (player == null || !player.isOnline() || plan.cancelled().getAsBoolean()) {
-                return CompletableFuture.failedFuture(new CancellationException());
-            }
-            if (!tool.available(player)) {
-                return CompletableFuture.completedFuture(ToolResult.error("Tool is no longer available."));
-            }
-            plan.turn().toolsUsed().add(tool.name());
-            if (tool.activity() != null && plan.turn().kind() == AgentTurn.Kind.CONVERSATION) {
-                player.sendActionBar(Lang.component(player, Lang.Prefix.NONE, NamedTextColor.GRAY, tool.activity()));
-            }
-            return tool.call(new ToolContext(player, plan.turn(), plan.language()), args);
-        });
         try {
-            long remaining = Math.max(1, deadline - System.nanoTime());
-            return future.get(remaining, TimeUnit.NANOSECONDS);
-        } catch (TimeoutException e) {
-            future.cancel(true);
-            return ToolResult.error("Tool timed out.");
+            return main.submit(() -> {
+                Player player = players.apply(plan.turn().player());
+                if (player == null || !player.isOnline() || plan.cancelled().getAsBoolean()) {
+                    return CompletableFuture.failedFuture(new CancellationException());
+                }
+                if (System.nanoTime() >= deadline) {
+                    return CompletableFuture.completedFuture(ToolResult.error("Tool timed out before execution."));
+                }
+                if (!tool.available(player)) {
+                    return CompletableFuture.completedFuture(ToolResult.error("Tool is no longer available."));
+                }
+                plan.turn().toolsUsed().add(tool.name());
+                if (tool.activity() != null && plan.turn().kind() == AgentTurn.Kind.CONVERSATION) {
+                    player.sendActionBar(
+                            Lang.component(player, Lang.Prefix.NONE, NamedTextColor.GRAY, tool.activity()));
+                }
+                return tool.call(new ToolContext(player, plan.turn(), plan.language()), args);
+            });
+        } catch (RuntimeException e) {
+            return CompletableFuture.failedFuture(e);
+        }
+    }
+
+    private ToolResult await(Plan plan, CompletableFuture<ToolResult> future, long deadline)
+            throws InterruptedException {
+        try {
+            while (true) {
+                if (plan.cancelled().getAsBoolean()) throw new CancellationException();
+                long remaining = deadline - System.nanoTime();
+                if (remaining <= 0) {
+                    future.cancel(true);
+                    return ToolResult.error("Tool timed out.");
+                }
+                try {
+                    return future.get(Math.min(remaining, TimeUnit.MILLISECONDS.toNanos(100)), TimeUnit.NANOSECONDS);
+                } catch (TimeoutException e) {
+                    // Recheck turn cancellation and the shared deadline while reads are pending.
+                }
+            }
         } catch (ExecutionException e) {
             Throwable cause = e.getCause();
             if (cause instanceof CancellationException cancelled) {

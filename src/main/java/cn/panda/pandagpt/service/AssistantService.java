@@ -477,8 +477,13 @@ public final class AssistantService implements AutoCloseable {
             return result;
         }
         schedule(() -> {
+            if (result.isDone() || closed) return;
             try {
-                task.get().whenComplete((value, error) -> {
+                CompletableFuture<T> child = task.get();
+                result.whenComplete((value, error) -> {
+                    if (result.isCancelled()) child.cancel(true);
+                });
+                child.whenComplete((value, error) -> {
                     if (error != null) {
                         result.completeExceptionally(
                                 error instanceof CompletionException && error.getCause() != null

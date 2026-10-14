@@ -32,15 +32,17 @@ public final class PlaceTools {
                                         Schema.text(args, "name"),
                                         "looking_at".equals(Schema.text(args, "target")),
                                         Schema.flag(args, "is_home")))),
-                AgentTool.of(
+                AgentTool.async(
                         "forget_place",
-                        "Forget a remembered place by its listed name.",
-                        object(string("name", "Exact name from list_places", true)),
+                        "Preview forgetting a place by exact name. Show affected evidence and confirmation phrase. "
+                                + "Use token only when the current player's complete message equals that phrase; preview alone never deletes.",
+                        object(
+                                string("name", "Exact name from list_places", true),
+                                string("token", "One-use preview token; omit to preview", false)),
                         p -> ToolSupport.perception(plugin),
                         null,
-                        (context, args) -> ToolSupport.result(
-                                plugin.perception().forgetPlace(context.player(), Schema.text(args, "name")))),
-                AgentTool.of(
+                        (context, args) -> MemoryTools.forgetLegacy(plugin, context, args, true)),
+                AgentTool.readOnlyOf(
                         "list_places",
                         "List the player's remembered places in the current world with distances and whether they "
                                 + "changed since being recorded.",
@@ -48,7 +50,7 @@ public final class PlaceTools {
                         p -> ToolSupport.perception(plugin),
                         ToolSupport.activity("memory"),
                         (context, args) -> ToolResult.ok(plugin.perception().listPlaces(context.player()))),
-                AgentTool.of(
+                AgentTool.readOnlyOf(
                         "locate_place",
                         "Direction and distance from the player to a remembered place, including which way to turn. "
                                 + "Use name 'home' for the player's home.",

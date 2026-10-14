@@ -104,7 +104,7 @@ final class GeminiFormat implements WireFormat {
         }
         body.add("contents", contents);
         JsonObject generation = new JsonObject();
-        generation.addProperty("maxOutputTokens", settings.maxOutputTokens());
+        generation.addProperty("maxOutputTokens", request.outputTokens(settings.maxOutputTokens()));
         body.add("generationConfig", generation);
         if (!request.tools().isEmpty()) {
             JsonArray declarations = new JsonArray();

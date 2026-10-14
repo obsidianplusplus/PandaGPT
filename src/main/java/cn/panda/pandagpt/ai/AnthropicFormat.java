@@ -37,7 +37,7 @@ final class AnthropicFormat implements WireFormat {
     public String body(Settings settings, AiRequest request) {
         JsonObject body = new JsonObject();
         body.addProperty("model", settings.model());
-        body.addProperty("max_tokens", settings.maxOutputTokens());
+        body.addProperty("max_tokens", request.outputTokens(settings.maxOutputTokens()));
         body.addProperty("system", request.systemPrompt());
         JsonArray messages = new JsonArray();
         JsonObject current = null;

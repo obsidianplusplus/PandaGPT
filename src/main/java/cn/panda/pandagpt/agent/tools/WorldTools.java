@@ -17,7 +17,7 @@ import java.util.stream.Collectors;
 public final class WorldTools {
     public static List<AgentTool> create(ChatGPTIntegration plugin) {
         return List.of(
-                AgentTool.of(
+                AgentTool.readOnlyOf(
                         "nearby_entities",
                         "Living entities near the player, monsters first then by distance.",
                         object(integer("radius", "Search radius in blocks, 4 to the configured maximum", false)),
@@ -31,14 +31,14 @@ public final class WorldTools {
                                     radius,
                                     Math.max(1, plugin.settings().maxEntities())));
                         }),
-                AgentTool.of(
+                AgentTool.readOnlyOf(
                         "world_conditions",
                         "Time of day, weather, light level at the player's feet, biome and difficulty.",
                         object(),
                         p -> plugin.settings().environmentEnabled(),
                         null,
                         (context, args) -> ToolResult.ok(PlayerContext.conditions(context.player()))),
-                AgentTool.of(
+                AgentTool.readOnlyOf(
                         "search_server_knowledge",
                         "Search the server's own documentation (rules, economy, claims, teleports, plugins). Always "
                                 + "use this before answering questions about this server; never guess server rules.",
@@ -55,7 +55,7 @@ public final class WorldTools {
                                                     .map(h -> "## " + h.heading() + "\n" + h.text())
                                                     .collect(Collectors.joining("\n\n")));
                         }),
-                AgentTool.of(
+                AgentTool.readOnlyOf(
                         "list_server_commands",
                         "Plugin commands this player has permission to use, with descriptions.",
                         object(),

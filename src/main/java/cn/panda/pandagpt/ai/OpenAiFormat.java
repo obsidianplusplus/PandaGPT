@@ -40,7 +40,7 @@ final class OpenAiFormat implements WireFormat {
     public String body(Settings settings, AiRequest request) {
         JsonObject body = new JsonObject();
         body.addProperty("model", settings.model());
-        body.addProperty(settings.provider().maxTokensField(), settings.maxOutputTokens());
+        body.addProperty(settings.provider().maxTokensField(), request.outputTokens(settings.maxOutputTokens()));
         JsonArray messages = new JsonArray();
         JsonObject system = new JsonObject();
         system.addProperty("role", "system");

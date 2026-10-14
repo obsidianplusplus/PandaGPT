@@ -15,7 +15,7 @@ import java.util.List;
 public final class AssistantTools {
     public static List<AgentTool> create(ChatGPTIntegration plugin) {
         return List.of(
-                AgentTool.of(
+                AgentTool.readOnlyOf(
                         "get_player_status",
                         "Full status of the player: inventory summary, armor, offhand, potion effects, level.",
                         object(),
@@ -38,6 +38,24 @@ public final class AssistantTools {
                         p -> true,
                         null,
                         (context, args) -> {
+                            String request = context.turn()
+                                    .playerEvidence()
+                                    .strip()
+                                    .toLowerCase(java.util.Locale.ROOT)
+                                    .replaceAll("[。.!！]$", "");
+                            if (context.turn().kind() != AgentTurn.Kind.CONVERSATION
+                                    || !java.util.Set.of(
+                                                    "忘掉吧",
+                                                    "忘掉刚才的对话",
+                                                    "忘记刚才的对话",
+                                                    "清空对话",
+                                                    "清除对话历史",
+                                                    "忘掉对话",
+                                                    "forget this conversation",
+                                                    "clear conversation history")
+                                            .contains(request))
+                                return ToolResult.error(
+                                        "Explicit player authorization required. Ask the player to send: 清空对话 / clear conversation history.");
                             context.turn().requestForget();
                             return ToolResult.ok("Conversation history will be cleared after this reply.");
                         }),
