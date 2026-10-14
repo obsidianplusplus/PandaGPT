@@ -6,6 +6,7 @@ prefix:
   vision: "[Panda Visão]"
   perception: "[Panda Percepção]"
   suggestion: "[Panda Dica]"
+  reminder: "[Panda Lembrete]"
 admin:
   usage: "/pandaadmin <reload|status|clearchat>"
   cleared: "Sessões, observações, capturas de visão e ações pendentes do Panda apagadas; locais salvos precisam ser apagados separadamente."
@@ -96,6 +97,7 @@ suggest:
   low_health: "Sua vida está baixa."
   low_food: "Você está com fome; coma algo logo."
   nightfall: "Está anoitecendo e você está a cerca de {0} blocos de casa."
+  death: "Você morreu perto de {0} e deixou cair {1} pilhas de itens; elas somem em cerca de 5 minutos."
 mode:
   assist: "assistência"
   quiet: "silencioso"
@@ -111,6 +113,7 @@ memory:
   name_too_long: "Os nomes podem ter no máximo 64 caracteres."
   queue_unavailable: "A fila de salvamento da memória está indisponível."
   auto_home_name: "Casa"
+  death_point_name: "Ponto de morte"
 config:
   provider_invalid: "panda.model_selection.provider deve ser openai ou gemini"
   url_invalid: "{0}.api_url é inválida"
@@ -135,6 +138,7 @@ config:
   language_invalid: "O arquivo de idioma {0} não é um YAML válido"
   skill_invalid: "O arquivo de habilidade {0} é inválido: precisa de um cabeçalho --- com name (minúsculas, dígitos, hífens) e description."
   prompt_invalid: "O arquivo de prompt {0} é grande demais ou inválido."
+  map_url_invalid: "panda.features.map_url deve começar com http:// ou https://"
 log:
   enabled: "PandaGPT ativado: Paper 26.3 / Java 25; {0}"
   no_api_key: "O provedor de IA selecionado não tem chave de API; as perguntas serão recusadas até ela ser configurada."
@@ -150,6 +154,7 @@ log:
   texture_preload_failed: "Falha ao pré-carregar texturas: {0}"
   vision_sampling_error: "Erro na amostragem visual: {0}"
   vision_render_failed: "Falha ao renderizar ou salvar a visão: {0}: {1}"
+  integration_failed: "A integração do plugin não carregou (versão incompatível?) e foi ignorada: {0}"
 intent:
   remembered: "✓ Lembrei de \"{0}\": {1}"
   remembered_home: "✓ Agora aqui é sua casa: {0}"
@@ -170,3 +175,11 @@ agent:
   activity.nearby: "👂 Vendo criaturas por perto…"
   activity.knowledge: "📖 Lendo o guia do servidor…"
   activity.look: "👀 Olhando sua visão, fique parado…"
+  activity.build: "🏗 Montando uma prévia…"
+  activity.economy: "💰 Consultando seu saldo…"
+reminder:
+  fired: "⏰ {0}"
+guide:
+  bar: "🧭 {0} {1} {2} blocos · altura {3}"
+  arrived: "Você chegou a {0}."
+  world_changed: "Você saiu do mundo onde fica {0}; a navegação terminou."

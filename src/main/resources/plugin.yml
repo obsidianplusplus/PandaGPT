@@ -1,7 +1,8 @@
 name: PandaGPT
-version: '3.0.0'
+version: '3.1.0'
 main: cn.panda.pandagpt.ChatGPTIntegration
 api-version: '26.3'
+softdepend: [Vault, PlaceholderAPI, LuckPerms, WorldGuard, GriefPrevention, Towny, Lands, Essentials, CoreProtect, mcMMO, AuraSkills]
 description: 只需在聊天中说 panda 的 Minecraft Agent 助手：能看、能记、会查资料，也会在合适的时候安静地提醒你。
 website: https://github.com/obsidianplusplus/PandaGPT
 commands:
@@ -24,4 +25,7 @@ permissions:
     default: op
   pandagpt.vision.debug:
     description: 允许以私有粒子显示射线命中点。
+    default: op
+  pandagpt.blockhistory:
+    description: 允许 Agent 查询 CoreProtect 方块记录（谁放置或破坏了方块）。
     default: op

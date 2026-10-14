@@ -6,6 +6,7 @@ prefix:
   vision: "[Panda 视觉]"
   perception: "[Panda 感知]"
   suggestion: "[Panda 建议]"
+  reminder: "[Panda 提醒]"
 admin:
   usage: "/pandaadmin <reload|status|clearchat>"
   cleared: "Panda 会话、观察、视觉采样和待确认动作已清除；持久地点需单独清除。"
@@ -96,6 +97,7 @@ suggest:
   low_health: "你的生命值很低。"
   low_food: "你快饿了，记得吃点东西。"
   nightfall: "天快黑了，你离家大约 {0} 格。"
+  death: "你在 {0} 附近死亡，掉落了 {1} 组物品，约 5 分钟后消失。"
 mode:
   assist: "辅助"
   quiet: "安静"
@@ -111,6 +113,7 @@ memory:
   name_too_long: "名称最多 64 字符。"
   queue_unavailable: "记忆保存队列不可用。"
   auto_home_name: "家"
+  death_point_name: "死亡点"
 config:
   provider_invalid: "panda.model_selection.provider 必须是 openai 或 gemini"
   url_invalid: "{0}.api_url 无效"
@@ -135,6 +138,7 @@ config:
   language_invalid: "语言文件 {0} 的 YAML 格式无效"
   skill_invalid: "技能文件 {0} 无效：需要以 --- 开头的头部，包含 name（小写字母、数字、连字符）与 description。"
   prompt_invalid: "提示词文件 {0} 过大或无效。"
+  map_url_invalid: "panda.features.map_url 必须以 http:// 或 https:// 开头"
 log:
   enabled: "PandaGPT 已启用：Paper 26.3 / Java 25；{0}"
   no_api_key: "所选模型服务没有 API 密钥；配置前所有提问都会被拒绝。"
@@ -150,6 +154,7 @@ log:
   texture_preload_failed: "纹理资源预加载失败：{0}"
   vision_sampling_error: "视觉采样错误：{0}"
   vision_render_failed: "视觉渲染或保存失败：{0}：{1}"
+  integration_failed: "外部插件集成加载失败（版本可能不兼容），已跳过：{0}"
 intent:
   remembered: "✓ 已记住「{0}」：{1}"
   remembered_home: "✓ 已把这里记为你的家：{0}"
@@ -170,3 +175,11 @@ agent:
   activity.nearby: "👂 正在留意周围的生物…"
   activity.knowledge: "📖 正在查阅服务器资料…"
   activity.look: "👀 正在看你眼前，请别动…"
+  activity.build: "🏗 正在搭建预览…"
+  activity.economy: "💰 正在查询余额…"
+reminder:
+  fired: "⏰ {0}"
+guide:
+  bar: "🧭 {0} {1} {2} 格 · 高差 {3}"
+  arrived: "已到达 {0}。"
+  world_changed: "你离开了 {0} 所在的世界，导航已结束。"

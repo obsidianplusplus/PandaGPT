@@ -46,13 +46,37 @@ public final class SpatialMemory implements AutoCloseable {
             long observedAt,
             long verifiedAt) {}
 
-    /** 一名玩家的完整记忆数据；mode 为 assist 或 quiet。 */
-    public record Data(List<Landmark> landmarks, String mode, String goal, int quantity) {
+    /**
+     * 玩家的一条个人笔记。
+     *
+     * @param kind todo（待办）、fact（关于玩家的偏好或事实）或 note（普通笔记）
+     */
+    public record Note(String text, String kind, long createdAt) {}
+
+    /** 一名玩家的完整记忆数据；mode 为 assist 或 quiet。旧文件没有 notes 字段时视为空列表。 */
+    public record Data(List<Landmark> landmarks, String mode, String goal, int quantity, List<Note> notes) {
         public Data {
             landmarks = List.copyOf(landmarks);
+            notes = notes == null ? List.of() : List.copyOf(notes);
         }
 
-        private static final Data EMPTY = new Data(List.of(), "assist", "", 1);
+        public Data(List<Landmark> landmarks, String mode, String goal, int quantity) {
+            this(landmarks, mode, goal, quantity, List.of());
+        }
+
+        public Data withLandmarks(List<Landmark> next) {
+            return new Data(next, mode, goal, quantity, notes);
+        }
+
+        public Data withPreferences(String nextMode, String nextGoal, int nextQuantity) {
+            return new Data(landmarks, nextMode, nextGoal, nextQuantity, notes);
+        }
+
+        public Data withNotes(List<Note> next) {
+            return new Data(landmarks, mode, goal, quantity, next);
+        }
+
+        private static final Data EMPTY = new Data(List.of(), "assist", "", 1, List.of());
 
         public static Data empty() {
             return EMPTY;
@@ -73,6 +97,20 @@ public final class SpatialMemory implements AutoCloseable {
 
     /** 家的来源；每个世界只保留一个家，新的家会替换旧的。 */
     public static final Set<String> HOME_SOURCES = Set.of(HOME_SOURCE, AUTO_HOME_SOURCE);
+
+    /** 最近一次死亡的位置；每个世界只保留一个。 */
+    public static final String DEATH_SOURCE = "death_point";
+
+    /** 每名玩家最多保存的笔记数。 */
+    public static final int MAX_NOTES = 50;
+
+    // 同一组来源在每个世界只保留一个地点。
+    private static Set<String> singletonGroup(String source) {
+        if (HOME_SOURCES.contains(source)) {
+            return HOME_SOURCES;
+        }
+        return source.equals(DEATH_SOURCE) ? Set.of(DEATH_SOURCE) : Set.of();
+    }
 
     // 淘汰时优先保留的来源。
     private static final Set<String> PROTECTED_SOURCES = Set.of(EXPLICIT_SOURCE, HOME_SOURCE, AUTO_HOME_SOURCE);
@@ -220,8 +258,7 @@ public final class SpatialMemory implements AutoCloseable {
                     var list = new ArrayList<>(data.landmarks());
                     list.removeIf(l -> l.world().equals(landmark.world())
                             && (l.name().equals(landmark.name())
-                                    || (HOME_SOURCES.contains(landmark.source())
-                                            && HOME_SOURCES.contains(l.source()))));
+                                    || singletonGroup(landmark.source()).contains(l.source())));
                     list.add(landmark);
                     while (list.size() > MAX_LANDMARKS) {
                         Landmark automatic = list.stream()
@@ -234,13 +271,40 @@ public final class SpatialMemory implements AutoCloseable {
                             list.removeFirst();
                         }
                     }
-                    return new Data(list, data.mode(), data.goal(), data.quantity());
+                    return data.withLandmarks(list);
                 },
                 done);
         if (!accepted) {
             done.run();
         }
         return accepted;
+    }
+
+    /** 添加一条笔记；超出上限时先淘汰最旧的非 fact 笔记。 */
+    public boolean addNote(UUID player, Note note) {
+        if (note.text().isBlank() || note.text().length() > 200) {
+            return false;
+        }
+        return edit(player, data -> {
+            var list = new ArrayList<>(data.notes());
+            list.add(note);
+            while (list.size() > MAX_NOTES) {
+                Note oldest = list.stream()
+                        .filter(n -> !n.kind().equals("fact"))
+                        .findFirst()
+                        .orElse(list.getFirst());
+                list.remove(oldest);
+            }
+            return data.withNotes(list);
+        });
+    }
+
+    /** 删除匹配的笔记。 */
+    public boolean removeNotes(UUID player, java.util.function.Predicate<Note> match) {
+        return edit(
+                player,
+                data -> data.withNotes(
+                        data.notes().stream().filter(match.negate()).toList()));
     }
 
     private void addOwner(Key key) {
@@ -343,7 +407,7 @@ public final class SpatialMemory implements AutoCloseable {
                         i, new Landmark(l.name(), l.world(), l.position(), l.state(), l.source(), l.observedAt(), 0));
             }
         }
-        return changed == null ? data : new Data(changed, data.mode(), data.goal(), data.quantity());
+        return changed == null ? data : data.withLandmarks(changed);
     }
 
     /** 玩家离线后释放缓存与索引；排在已提交写入之后执行。 */
@@ -381,7 +445,23 @@ public final class SpatialMemory implements AutoCloseable {
                         .filter(l -> l.world().equals(world))
                         .sorted(Comparator.comparingLong(Landmark::observedAt).reversed())
                         .limit(12)
-                        .toList());
+                        .toList())
+                + notes(data);
+    }
+
+    // 关于玩家的事实与待办放进上下文，让 Agent 记得玩家的偏好与计划。
+    private String notes(Data data) {
+        if (data.notes().isEmpty()) {
+            return "";
+        }
+        StringBuilder out = new StringBuilder("\nPlayer notes (written at the player's request; facts first):");
+        data.notes().stream()
+                .sorted(Comparator.comparing((Note n) ->
+                                n.kind().equals("fact") ? 0 : n.kind().equals("todo") ? 1 : 2)
+                        .thenComparing(Comparator.comparingLong(Note::createdAt).reversed()))
+                .limit(12)
+                .forEach(n -> out.append("\n- [").append(n.kind()).append("] ").append(n.text()));
+        return out.toString();
     }
 
     private boolean submit(Runnable task) {
@@ -433,7 +513,10 @@ public final class SpatialMemory implements AutoCloseable {
                 || data.goal() == null
                 || data.goal().length() > 64
                 || data.quantity() < 1
-                || data.quantity() > 64) {
+                || data.quantity() > 64
+                || data.notes().size() > MAX_NOTES
+                || data.notes().stream()
+                        .anyMatch(n -> n.text() == null || n.text().length() > 200 || n.kind() == null)) {
             throw new IOException("Invalid memory data");
         }
         for (Landmark l : data.landmarks()) {

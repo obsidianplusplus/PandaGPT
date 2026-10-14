@@ -49,7 +49,8 @@ public record Settings(
         int logFiles,
         VisionSettings vision,
         PerceptionSettings perception,
-        AgentSettings agent) {
+        AgentSettings agent,
+        FeatureSettings features) {
 
     /** 代理配置；toString 不输出主机、账号与密码。 */
     public record Proxy(boolean enabled, String host, int port, String username, String password) {
@@ -146,7 +147,8 @@ public record Settings(
                 number(c, "panda.logging.files", 3, 1, 20),
                 VisionSettings.load(c),
                 PerceptionSettings.load(c),
-                AgentSettings.load(c));
+                AgentSettings.load(c),
+                FeatureSettings.load(c));
     }
 
     private static int number(FileConfiguration c, String path, int fallback, int min, int max) {

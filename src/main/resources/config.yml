@@ -58,6 +58,16 @@ panda:
         - 'assets/vanilla-26.3.zip' # 相对于 plugins/PandaGPT；支持文件夹、ZIP 或客户端 JAR。
         # - 'assets/server-pack.zip' # 后面的包覆盖前面的包。
       cache_mib: 64 # 解码后 PNG 像素的缓存预算；动画 PNG 使用第一帧。
+  features:
+    preview_max_blocks: 2048 # 建筑幽灵预览一次最多显示的方块数（只有玩家自己看得到，不改动世界）。
+    preview_seconds: 180 # 预览自动消失前的秒数。
+    guidance_seconds: 600 # 粒子导航的最长持续时间。
+    max_reminders: 10 # 每位玩家同时存在的提醒上限；0 表示关闭提醒。
+    map_url: '' # 在线地图链接模板，例如 'https://map.example.com/#{world}:{x}:{y}:{z}:50:0:0:0:0:perspective'；留空表示没有网页地图。
+  integrations:
+    disabled: [] # 不启用的外部插件集成：economy placeholders ranks regions claims towny lands essentials block-history mcmmo auraskills
+    placeholder_denylist: ['ip', 'address', 'password', 'token', 'email', 'uuid'] # 包含这些片段的变量一律不解析，防止泄露隐私。
+    block_history_days: 7 # CoreProtect 方块记录最多查询的天数（需要 pandagpt.blockhistory 权限）。
   model_selection:
     provider: 'gemini'
     openai:

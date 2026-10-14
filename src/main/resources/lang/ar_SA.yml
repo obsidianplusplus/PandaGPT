@@ -6,6 +6,7 @@ prefix:
   vision: "[Panda رؤية]"
   perception: "[Panda إدراك]"
   suggestion: "[Panda نصيحة]"
+  reminder: "[Panda تذكير]"
 admin:
   usage: "/pandaadmin <reload|status|clearchat>"
   cleared: "تم مسح جلسات Panda والملاحظات ولقطات الرؤية والإجراءات المعلّقة؛ يجب مسح الأماكن المحفوظة بشكل منفصل."
@@ -96,6 +97,7 @@ suggest:
   low_health: "صحتك منخفضة."
   low_food: "بدأت تجوع؛ تناول شيئًا قريبًا."
   nightfall: "حلّ الليل وأنت على بعد نحو {0} مكعبًا من المنزل."
+  death: "متّ قرب {0} وأسقطت {1} مجموعات من العناصر؛ تختفي بعد نحو 5 دقائق."
 mode:
   assist: "مساعدة"
   quiet: "هادئ"
@@ -111,6 +113,7 @@ memory:
   name_too_long: "يمكن أن يتكون الاسم من 64 حرفًا كحد أقصى."
   queue_unavailable: "طابور حفظ الذاكرة غير متاح."
   auto_home_name: "المنزل"
+  death_point_name: "مكان الوفاة"
 config:
   provider_invalid: "يجب أن تكون قيمة panda.model_selection.provider إما openai أو gemini"
   url_invalid: "{0}.api_url غير صالح"
@@ -135,6 +138,7 @@ config:
   language_invalid: "ملف اللغة {0} ليس بصيغة YAML صالحة"
   skill_invalid: "ملف المهارة {0} غير صالح: يحتاج إلى ترويسة --- تحتوي name (أحرف صغيرة وأرقام وشرطات) و description."
   prompt_invalid: "ملف الموجّه {0} كبير جدًا أو غير صالح."
+  map_url_invalid: "يجب أن يبدأ panda.features.map_url بـ http:// أو https://"
 log:
   enabled: "تم تفعيل PandaGPT: Paper 26.3 / Java 25؛ {0}"
   no_api_key: "لا يوجد مفتاح API لمزوّد الذكاء الاصطناعي المحدد؛ ستُرفض الأسئلة حتى يتم ضبطه."
@@ -150,6 +154,7 @@ log:
   texture_preload_failed: "فشل التحميل المسبق للخامات: {0}"
   vision_sampling_error: "خطأ في أخذ العينات المرئية: {0}"
   vision_render_failed: "فشل عرض الرؤية أو حفظها: {0}: {1}"
+  integration_failed: "تعذّر تحميل تكامل الإضافة (إصدار غير متوافق؟) وتم تخطيه: {0}"
 intent:
   remembered: "✓ تم حفظ \"{0}\": {1}"
   remembered_home: "✓ هذا منزلك الآن: {0}"
@@ -170,3 +175,11 @@ agent:
   activity.nearby: "👂 أتحقق من المخلوقات القريبة…"
   activity.knowledge: "📖 أقرأ دليل الخادم…"
   activity.look: "👀 أنظر إلى ما أمامك، لا تتحرك…"
+  activity.build: "🏗 أبني معاينة…"
+  activity.economy: "💰 أتحقق من رصيدك…"
+reminder:
+  fired: "⏰ {0}"
+guide:
+  bar: "🧭 {0} {1} {2} مكعب · الارتفاع {3}"
+  arrived: "لقد وصلت إلى {0}."
+  world_changed: "غادرت العالم الذي يوجد فيه {0}؛ انتهى التوجيه."

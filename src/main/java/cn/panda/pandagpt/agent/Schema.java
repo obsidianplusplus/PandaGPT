@@ -49,6 +49,25 @@ public final class Schema {
         return new Field(name, schema, required);
     }
 
+    /** 数组参数，元素结构由 items 指定。 */
+    public static Field array(String name, String description, JsonObject items, boolean required) {
+        JsonObject schema = typed("array", description);
+        schema.add("items", items);
+        return new Field(name, schema, required);
+    }
+
+    /** 由若干字段组成的对象结构，可用作数组元素。 */
+    public static JsonObject shape(Field... fields) {
+        return object(fields);
+    }
+
+    /** 整数数组参数，例如坐标 [x, y, z]。 */
+    public static Field integers(String name, String description, boolean required) {
+        JsonObject item = new JsonObject();
+        item.addProperty("type", "integer");
+        return array(name, description, item, required);
+    }
+
     private static JsonObject typed(String type, String description) {
         JsonObject schema = new JsonObject();
         schema.addProperty("type", type);

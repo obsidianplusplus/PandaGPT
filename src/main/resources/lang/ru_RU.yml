@@ -6,6 +6,7 @@ prefix:
   vision: "[Panda Зрение]"
   perception: "[Panda Восприятие]"
   suggestion: "[Panda Совет]"
+  reminder: "[Panda Напоминание]"
 admin:
   usage: "/pandaadmin <reload|status|clearchat>"
   cleared: "Сессии, наблюдения, снимки зрения и ожидающие действия Panda очищены; сохранённые места нужно очищать отдельно."
@@ -96,6 +97,7 @@ suggest:
   low_health: "У вас мало здоровья."
   low_food: "Вы проголодались, поешьте."
   nightfall: "Темнеет, а до дома около {0} блоков."
+  death: "Вы погибли около {0} и выронили {1} стаков предметов; они исчезнут примерно через 5 минут."
 mode:
   assist: "помощь"
   quiet: "тихий"
@@ -111,6 +113,7 @@ memory:
   name_too_long: "Название может содержать не более 64 символов."
   queue_unavailable: "Очередь сохранения памяти недоступна."
   auto_home_name: "Дом"
+  death_point_name: "Место смерти"
 config:
   provider_invalid: "panda.model_selection.provider должен быть openai или gemini"
   url_invalid: "{0}.api_url недействителен"
@@ -135,6 +138,7 @@ config:
   language_invalid: "Языковой файл {0} не является корректным YAML"
   skill_invalid: "Файл навыка {0} недействителен: нужен заголовок --- с name (строчные буквы, цифры, дефисы) и description."
   prompt_invalid: "Файл подсказки {0} слишком велик или недействителен."
+  map_url_invalid: "panda.features.map_url должен начинаться с http:// или https://"
 log:
   enabled: "PandaGPT включён: Paper 26.3 / Java 25; {0}"
   no_api_key: "У выбранного ИИ-провайдера нет API-ключа; вопросы будут отклоняться до его настройки."
@@ -150,6 +154,7 @@ log:
   texture_preload_failed: "Не удалось заранее загрузить текстуры: {0}"
   vision_sampling_error: "Ошибка визуальной выборки: {0}"
   vision_render_failed: "Не удалось отрисовать или сохранить изображение: {0}: {1}"
+  integration_failed: "Не удалось загрузить интеграцию плагина (несовместимая версия?), пропущено: {0}"
 intent:
   remembered: "✓ Запомнил «{0}»: {1}"
   remembered_home: "✓ Теперь это ваш дом: {0}"
@@ -170,3 +175,11 @@ agent:
   activity.nearby: "👂 Проверяю существ рядом…"
   activity.knowledge: "📖 Читаю справку сервера…"
   activity.look: "👀 Смотрю, не двигайтесь…"
+  activity.build: "🏗 Строю предпросмотр…"
+  activity.economy: "💰 Проверяю баланс…"
+reminder:
+  fired: "⏰ {0}"
+guide:
+  bar: "🧭 {0} {1} {2} бл. · высота {3}"
+  arrived: "Вы прибыли: {0}."
+  world_changed: "Вы покинули мир, где находится {0}; навигация завершена."

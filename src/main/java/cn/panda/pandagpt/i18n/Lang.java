@@ -12,7 +12,8 @@ public final class Lang {
         PANDA("prefix.panda"),
         VISION("prefix.vision"),
         PERCEPTION("prefix.perception"),
-        SUGGESTION("prefix.suggestion");
+        SUGGESTION("prefix.suggestion"),
+        REMINDER("prefix.reminder");
 
         private final String key;
 

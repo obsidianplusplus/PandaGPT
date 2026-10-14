@@ -658,6 +658,16 @@ public final class PerceptionController implements AutoCloseable {
         return out.isEmpty() ? "No remembered places in this world." : out.toString();
     }
 
+    /** 按名称查找当前世界的地点；名称为“家/home”等时返回玩家的家。 */
+    public SpatialMemory.Landmark findPlace(Player player, String name) {
+        UUID world = player.getWorld().getUID();
+        return memory.view(player.getUniqueId()).landmarks().stream()
+                .filter(l -> l.world().equals(world)
+                        && (l.name().equalsIgnoreCase(name) || (isHomeQuery(name) && isHome(l))))
+                .findFirst()
+                .orElse(null);
+    }
+
     /** 某个地点相对玩家的方位：距离、高度差、指南针方向与相对朝向。 */
     public String locatePlace(Player player, String name) {
         UUID world = player.getWorld().getUID();
@@ -840,14 +850,9 @@ public final class PerceptionController implements AutoCloseable {
         }
         memory.edit(
                 player.getUniqueId(),
-                d -> new SpatialMemory.Data(
-                        d.landmarks().stream()
-                                .filter(l ->
-                                        !(l.world().equals(world) && l.name().equalsIgnoreCase(name)))
-                                .toList(),
-                        d.mode(),
-                        d.goal(),
-                        d.quantity()));
+                d -> d.withLandmarks(d.landmarks().stream()
+                        .filter(l -> !(l.world().equals(world) && l.name().equalsIgnoreCase(name)))
+                        .toList()));
         return Msg.of("intent.forgot", name);
     }
 
@@ -904,8 +909,30 @@ public final class PerceptionController implements AutoCloseable {
         String mode = s.mode.id;
         String goal = s.goal;
         int quantity = s.quantity;
-        if (!memory.edit(player.getUniqueId(), d -> new SpatialMemory.Data(d.landmarks(), mode, goal, quantity))) {
+        if (!memory.edit(player.getUniqueId(), d -> d.withPreferences(mode, goal, quantity))) {
             tell(player, "perception.save_unavailable");
+        }
+    }
+
+    /** 玩家死亡：记住死亡点，并提出一条高优先级候选，让主动式 Agent 告诉玩家掉落物位置与剩余时间。 */
+    public void died(Player player, SceneObjects.Pos pos, Msg signal) {
+        if (!intentsAvailable() || !player.hasPermission("pandagpt.use")) {
+            return;
+        }
+        long now = clock.millis();
+        memory.remember(
+                player.getUniqueId(),
+                new SpatialMemory.Landmark(
+                        Lang.text(player, "memory.death_point_name"),
+                        player.getWorld().getUID(),
+                        pos,
+                        "death_point",
+                        SpatialMemory.DEATH_SOURCE,
+                        now,
+                        now));
+        State s = state(player);
+        if (s != null) {
+            offer(player, s, QuietPolicy.Kind.DEATH, "death:" + now, signal, now, null, 90);
         }
     }
 

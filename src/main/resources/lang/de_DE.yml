@@ -6,6 +6,7 @@ prefix:
   vision: "[Panda Sicht]"
   perception: "[Panda Wahrnehmung]"
   suggestion: "[Panda Tipp]"
+  reminder: "[Panda Erinnerung]"
 admin:
   usage: "/pandaadmin <reload|status|clearchat>"
   cleared: "Panda-Sitzungen, Beobachtungen, Sichtaufnahmen und ausstehende Aktionen gelöscht; gespeicherte Orte müssen separat gelöscht werden."
@@ -96,6 +97,7 @@ suggest:
   low_health: "Deine Gesundheit ist niedrig."
   low_food: "Du wirst hungrig; iss bald etwas."
   nightfall: "Es wird Nacht, und du bist etwa {0} Blöcke von zu Hause entfernt."
+  death: "Du bist bei {0} gestorben und hast {1} Stapel fallen lassen; sie verschwinden in etwa 5 Minuten."
 mode:
   assist: "Hilfe"
   quiet: "leise"
@@ -111,6 +113,7 @@ memory:
   name_too_long: "Namen dürfen höchstens 64 Zeichen lang sein."
   queue_unavailable: "Die Speicherwarteschlange des Gedächtnisses ist nicht verfügbar."
   auto_home_name: "Zuhause"
+  death_point_name: "Todespunkt"
 config:
   provider_invalid: "panda.model_selection.provider muss openai oder gemini sein"
   url_invalid: "{0}.api_url ist ungültig"
@@ -135,6 +138,7 @@ config:
   language_invalid: "Die Sprachdatei {0} ist kein gültiges YAML"
   skill_invalid: "Die Skill-Datei {0} ist ungültig: Sie braucht einen ---‑Kopf mit name (Kleinbuchstaben, Ziffern, Bindestriche) und description."
   prompt_invalid: "Die Prompt-Datei {0} ist zu groß oder ungültig."
+  map_url_invalid: "panda.features.map_url muss mit http:// oder https:// beginnen"
 log:
   enabled: "PandaGPT aktiviert: Paper 26.3 / Java 25; {0}"
   no_api_key: "Der gewählte KI-Anbieter hat keinen API-Schlüssel; Fragen werden abgelehnt, bis er eingerichtet ist."
@@ -150,6 +154,7 @@ log:
   texture_preload_failed: "Vorladen der Texturen fehlgeschlagen: {0}"
   vision_sampling_error: "Fehler bei der Sichtabtastung: {0}"
   vision_render_failed: "Rendern oder Speichern der Sicht fehlgeschlagen: {0}: {1}"
+  integration_failed: "Plugin-Integration konnte nicht geladen werden (inkompatible Version?) und wurde übersprungen: {0}"
 intent:
   remembered: "✓ „{0}“ gemerkt: {1}"
   remembered_home: "✓ Das ist jetzt dein Zuhause: {0}"
@@ -170,3 +175,11 @@ agent:
   activity.nearby: "👂 Prüfe Kreaturen in der Nähe…"
   activity.knowledge: "📖 Lese den Server-Leitfaden…"
   activity.look: "👀 Ich schaue hin, halt still…"
+  activity.build: "🏗 Baue eine Vorschau…"
+  activity.economy: "💰 Prüfe deinen Kontostand…"
+reminder:
+  fired: "⏰ {0}"
+guide:
+  bar: "🧭 {0} {1} {2} Blöcke · Höhe {3}"
+  arrived: "Du bist bei {0} angekommen."
+  world_changed: "Du hast die Welt von {0} verlassen; die Navigation wurde beendet."

@@ -4,9 +4,14 @@ import cn.panda.pandagpt.agent.PromptLibrary;
 import cn.panda.pandagpt.agent.SkillLibrary;
 import cn.panda.pandagpt.agent.ToolRegistry;
 import cn.panda.pandagpt.agent.tools.AssistantTools;
+import cn.panda.pandagpt.agent.tools.BuildTools;
 import cn.panda.pandagpt.agent.tools.CommandTools;
 import cn.panda.pandagpt.agent.tools.GoalTools;
+import cn.panda.pandagpt.agent.tools.InspectTools;
+import cn.panda.pandagpt.agent.tools.JournalTools;
+import cn.panda.pandagpt.agent.tools.NavigationTools;
 import cn.panda.pandagpt.agent.tools.PlaceTools;
+import cn.panda.pandagpt.agent.tools.ReminderTools;
 import cn.panda.pandagpt.agent.tools.VisionTools;
 import cn.panda.pandagpt.agent.tools.WorldTools;
 import cn.panda.pandagpt.ai.HttpAiProvider;
@@ -14,12 +19,16 @@ import cn.panda.pandagpt.awareness.KnowledgeBase;
 import cn.panda.pandagpt.awareness.RecipeKnowledge;
 import cn.panda.pandagpt.commands.AdminCommand;
 import cn.panda.pandagpt.config.Settings;
+import cn.panda.pandagpt.features.FeatureService;
 import cn.panda.pandagpt.i18n.Lang;
 import cn.panda.pandagpt.i18n.Localized;
 import cn.panda.pandagpt.i18n.LocalizedException;
 import cn.panda.pandagpt.i18n.LocalizedIOException;
 import cn.panda.pandagpt.i18n.Messages;
+import cn.panda.pandagpt.integration.Integration;
+import cn.panda.pandagpt.integration.Integrations;
 import cn.panda.pandagpt.listeners.ChatListener;
+import cn.panda.pandagpt.listeners.FeatureListener;
 import cn.panda.pandagpt.listeners.PerceptionListener;
 import cn.panda.pandagpt.perception.PerceptionController;
 import cn.panda.pandagpt.perception.SpatialMemory;
@@ -39,6 +48,7 @@ import java.nio.file.StandardCopyOption;
 import java.time.Clock;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.regex.Pattern;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.InvalidConfigurationException;
@@ -65,6 +75,8 @@ public final class ChatGPTIntegration extends JavaPlugin {
     private TextureLibrary textures;
     private volatile RecipeKnowledge recipes;
     private volatile KnowledgeBase knowledge;
+    private FeatureService features;
+    private volatile Integrations.Detected integrations = new Integrations.Detected(List.of(), List.of());
     private BukkitTask cleanup;
     private BukkitTask visionTick;
 
@@ -93,6 +105,7 @@ public final class ChatGPTIntegration extends JavaPlugin {
             Objects.requireNonNull(getCommand("pandaadmin")).setTabCompleter(command);
             getServer().getPluginManager().registerEvents(new ChatListener(this), this);
             getServer().getPluginManager().registerEvents(new PerceptionListener(this), this);
+            getServer().getPluginManager().registerEvents(new FeatureListener(this), this);
             cleanup = getServer().getScheduler().runTaskTimer(this, () -> service.expire(), 1200, 1200);
             visionTick = getServer()
                     .getScheduler()
@@ -103,6 +116,7 @@ public final class ChatGPTIntegration extends JavaPlugin {
                                 vision.tick(budget);
                                 perception.tick(budget);
                                 vision.finishTick(budget);
+                                features.tick();
                             },
                             1,
                             1);
@@ -154,8 +168,17 @@ public final class ChatGPTIntegration extends JavaPlugin {
         if (next.personality().length() + 4000 >= next.contextBudget()) {
             throw new LocalizedException("config.knowledge_budget");
         }
-        SkillLibrary nextSkills =
-                SkillLibrary.load(folder.resolve("skills"), next.agent().disabledSkills());
+        // 先探测外部插件，技能库据此启用 requires 满足的技能。
+        Integrations.Detected detected = Integrations.detect(
+                getServer(),
+                next.features().disabledIntegrations(),
+                message -> getLogger().warning(Lang.console("log.integration_failed", message)));
+        Set<String> activeIntegrations = detected.ids();
+        SkillLibrary nextSkills = SkillLibrary.load(
+                folder.resolve("skills"),
+                next.agent().disabledSkills(),
+                requirement -> activeIntegrations.contains(requirement)
+                        || getServer().getPluginManager().isPluginEnabled(requirement));
         PromptLibrary nextPrompts = PromptLibrary.load(folder.resolve("prompts"));
         RecipeKnowledge recipes = new RecipeKnowledge(getServer());
         PandaLogger log = new PandaLogger(folder, next);
@@ -180,11 +203,22 @@ public final class ChatGPTIntegration extends JavaPlugin {
                 .register(GoalTools.create(this))
                 .register(WorldTools.create(this))
                 .register(VisionTools.create(this))
-                .register(CommandTools.create(this));
+                .register(CommandTools.create(this))
+                .register(BuildTools.create(this))
+                .register(NavigationTools.create(this))
+                .register(ReminderTools.create(this))
+                .register(JournalTools.create(this))
+                .register(InspectTools.create(this));
+        for (Integration integration : detected.active()) {
+            registry.register(integration.tools(this));
+        }
         AssistantService replacement =
                 new AssistantService(this, next, provider, log, nextPrompts, nextSkills, registry);
         VisionController nextVision =
                 new VisionController(this, next.vision(), folder, nextTextures, Clock.systemUTC());
+        if (features == null) {
+            features = new FeatureService(next.features(), id -> getServer().getPlayer(id), Clock.systemUTC());
+        }
         if (memory == null) {
             memory = new SpatialMemory(
                     folder.resolve("memory"),
@@ -212,6 +246,8 @@ public final class ChatGPTIntegration extends JavaPlugin {
         service = replacement;
         this.recipes = recipes;
         this.knowledge = new KnowledgeBase(knowledge);
+        this.integrations = detected;
+        features.update(next.features());
         vision = nextVision;
         perception = nextPerception;
         textures = nextTextures;
@@ -308,6 +344,14 @@ public final class ChatGPTIntegration extends JavaPlugin {
         return recipes;
     }
 
+    public FeatureService features() {
+        return features;
+    }
+
+    public Integrations.Detected integrations() {
+        return integrations;
+    }
+
     public KnowledgeBase knowledge() {
         return knowledge;
     }
@@ -344,6 +388,10 @@ public final class ChatGPTIntegration extends JavaPlugin {
         if (textures != null) {
             textures.close();
             textures = null;
+        }
+        if (features != null) {
+            features.close(getServer().getOnlinePlayers());
+            features = null;
         }
     }
 }

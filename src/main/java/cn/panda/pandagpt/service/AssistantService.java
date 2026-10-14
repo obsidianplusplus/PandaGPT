@@ -77,6 +77,18 @@ public final class AssistantService implements AutoCloseable {
             "world_conditions",
             "recall_surroundings",
             "search_server_knowledge",
+            "last_death",
+            "advancement_progress",
+            "inspect_item",
+            "villager_trades",
+            "list_notes",
+            "list_reminders",
+            "economy_balance",
+            "regions_here",
+            "claim_here",
+            "towny_plot_here",
+            "lands_here",
+            "essentials_homes",
             "stay_silent");
 
     private static final long EXPIRY_CHECK_MILLIS = 30_000;

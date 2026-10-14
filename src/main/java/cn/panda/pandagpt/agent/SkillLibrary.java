@@ -36,11 +36,44 @@ import java.util.regex.Pattern;
  */
 public final class SkillLibrary {
     /** 内置技能，对应 JAR 中的 skills/&lt;名称&gt;.md。 */
-    public static final List<String> BUILT_IN =
-            List.of("panda", "places", "goals", "crafting", "survival", "vision", "commands", "server-guide");
+    public static final List<String> BUILT_IN = List.of(
+            "panda",
+            "auraskills",
+            "block-history",
+            "building",
+            "claims",
+            "combat",
+            "commands",
+            "crafting",
+            "economy",
+            "enchanting",
+            "essentials",
+            "exploration",
+            "farming",
+            "goals",
+            "items",
+            "journal",
+            "lands",
+            "mcmmo",
+            "navigation",
+            "new-player",
+            "notes",
+            "placeholders",
+            "places",
+            "quests-and-jobs",
+            "ranks",
+            "redstone",
+            "regions",
+            "reminders",
+            "server-guide",
+            "survival",
+            "teleport",
+            "towny",
+            "trading",
+            "vision");
 
     private static final Pattern NAME = Pattern.compile("[a-z0-9][a-z0-9-]{0,31}");
-    private static final int MAX_SKILLS = 32;
+    private static final int MAX_SKILLS = 64;
     private static final int MAX_BYTES = 16384;
 
     private final Map<String, Skill> skills;
@@ -54,6 +87,14 @@ public final class SkillLibrary {
      * @param disabled 服主在配置中关闭的技能
      */
     public static SkillLibrary load(Path folder, Set<String> disabled) throws IOException {
+        return load(folder, disabled, requirement -> true);
+    }
+
+    /**
+     * @param available 判断技能头部 requires 中的集成编号或插件名是否可用；不可用的技能不加载
+     */
+    public static SkillLibrary load(Path folder, Set<String> disabled, java.util.function.Predicate<String> available)
+            throws IOException {
         Map<String, Skill> skills = new LinkedHashMap<>();
         for (String name : BUILT_IN) {
             try (InputStream in = SkillLibrary.class.getClassLoader().getResourceAsStream("skills/" + name + ".md")) {
@@ -78,6 +119,9 @@ public final class SkillLibrary {
             }
         }
         disabled.forEach(skills::remove);
+        skills.values()
+                .removeIf(skill -> !skill.requires().isEmpty()
+                        && !skill.requires().stream().allMatch(available));
         if (skills.size() > MAX_SKILLS) {
             throw new LocalizedIOException("config.skill_invalid", "skills/");
         }
@@ -116,7 +160,13 @@ public final class SkillLibrary {
                 .forEach(tools::add);
         String body =
                 normalized.substring(normalized.indexOf('\n', end + 1) + 1).strip();
-        return new Skill(name, description, body, tools, Boolean.parseBoolean(header.getOrDefault("always", "false")));
+        List<String> requires = Arrays.stream(
+                        header.getOrDefault("requires", "").split(","))
+                .map(String::strip)
+                .filter(s -> !s.isEmpty())
+                .toList();
+        return new Skill(
+                name, description, body, tools, Boolean.parseBoolean(header.getOrDefault("always", "false")), requires);
     }
 
     public Skill get(String name) {

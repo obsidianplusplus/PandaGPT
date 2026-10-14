@@ -6,6 +6,7 @@ prefix:
   vision: "[Panda ビジョン]"
   perception: "[Panda 知覚]"
   suggestion: "[Panda ヒント]"
+  reminder: "[Panda リマインダー]"
 admin:
   usage: "/pandaadmin <reload|status|clearchat>"
   cleared: "Panda のセッション・観察・ビジョン撮影・確認待ちの操作を消去しました。保存済みの地点は別途消去してください。"
@@ -96,6 +97,7 @@ suggest:
   low_health: "体力が少なくなっています。"
   low_food: "お腹が空いてきました。何か食べましょう。"
   nightfall: "日が暮れます。家まで約 {0} ブロックです。"
+  death: "{0} 付近で死亡し、{1} スタックのアイテムを落としました。約 5 分で消えます。"
 mode:
   assist: "アシスト"
   quiet: "静音"
@@ -111,6 +113,7 @@ memory:
   name_too_long: "名前は最大 64 文字です。"
   queue_unavailable: "記憶の保存キューが利用できません。"
   auto_home_name: "家"
+  death_point_name: "死亡地点"
 config:
   provider_invalid: "panda.model_selection.provider は openai または gemini である必要があります"
   url_invalid: "{0}.api_url が無効です"
@@ -135,6 +138,7 @@ config:
   language_invalid: "言語ファイル {0} の YAML が無効です"
   skill_invalid: "スキルファイル {0} が無効です：name（小文字・数字・ハイフン）と description を含む --- ヘッダーが必要です。"
   prompt_invalid: "プロンプトファイル {0} が大きすぎるか無効です。"
+  map_url_invalid: "panda.features.map_url は http:// または https:// で始める必要があります"
 log:
   enabled: "PandaGPT を有効化しました：Paper 26.3 / Java 25。{0}"
   no_api_key: "選択された AI サービスに API キーがありません。設定されるまで質問は拒否されます。"
@@ -150,6 +154,7 @@ log:
   texture_preload_failed: "テクスチャの事前読み込みに失敗しました：{0}"
   vision_sampling_error: "ビジョンサンプリングのエラー：{0}"
   vision_render_failed: "ビジョンの描画または保存に失敗しました：{0}：{1}"
+  integration_failed: "外部プラグイン連携の読み込みに失敗したためスキップしました（バージョン非互換の可能性）：{0}"
 intent:
   remembered: "✓「{0}」を覚えました：{1}"
   remembered_home: "✓ ここをあなたの家として覚えました：{0}"
@@ -170,3 +175,11 @@ agent:
   activity.nearby: "👂 周りの生き物を確認中…"
   activity.knowledge: "📖 サーバー資料を確認中…"
   activity.look: "👀 視界を確認中、動かないで…"
+  activity.build: "🏗 プレビューを作成中…"
+  activity.economy: "💰 残高を確認中…"
+reminder:
+  fired: "⏰ {0}"
+guide:
+  bar: "🧭 {0} {1} {2} ブロック · 高低差 {3}"
+  arrived: "{0} に到着しました。"
+  world_changed: "{0} のあるワールドを離れたため、案内を終了しました。"

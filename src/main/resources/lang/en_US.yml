@@ -6,6 +6,7 @@ prefix:
   vision: "[Panda Vision]"
   perception: "[Panda Sense]"
   suggestion: "[Panda Tip]"
+  reminder: "[Panda Reminder]"
 admin:
   usage: "/pandaadmin <reload|status|clearchat>"
   cleared: "Panda sessions, observations, vision captures and pending actions cleared; saved landmarks must be cleared separately."
@@ -96,6 +97,7 @@ suggest:
   low_health: "Your health is low."
   low_food: "You're getting hungry; eat something soon."
   nightfall: "Night is falling and you're about {0} blocks from home."
+  death: "You died near {0} and dropped {1} item stacks; they despawn in about 5 minutes."
 mode:
   assist: "assist"
   quiet: "quiet"
@@ -111,6 +113,7 @@ memory:
   name_too_long: "Names can be at most 64 characters."
   queue_unavailable: "The memory save queue is unavailable."
   auto_home_name: "Home"
+  death_point_name: "Death point"
 config:
   provider_invalid: "panda.model_selection.provider must be openai or gemini"
   url_invalid: "{0}.api_url is invalid"
@@ -135,6 +138,7 @@ config:
   language_invalid: "Language file {0} is not valid YAML"
   skill_invalid: "Skill file {0} is invalid: it needs a --- header with name (lowercase letters, digits, hyphens) and description."
   prompt_invalid: "Prompt file {0} is too large or invalid."
+  map_url_invalid: "panda.features.map_url must start with http:// or https://"
 log:
   enabled: "PandaGPT enabled: Paper 26.3 / Java 25; {0}"
   no_api_key: "The selected AI provider has no API key; questions will be rejected until it is configured."
@@ -150,6 +154,7 @@ log:
   texture_preload_failed: "Texture preload failed: {0}"
   vision_sampling_error: "Vision sampling error: {0}"
   vision_render_failed: "Vision render/save failed: {0}: {1}"
+  integration_failed: "Plugin integration failed to load (incompatible version?) and was skipped: {0}"
 intent:
   remembered: "✓ Remembered \"{0}\": {1}"
   remembered_home: "✓ This is now your home: {0}"
@@ -170,3 +175,11 @@ agent:
   activity.nearby: "👂 Checking nearby creatures…"
   activity.knowledge: "📖 Reading the server guide…"
   activity.look: "👀 Looking at your view, hold still…"
+  activity.build: "🏗 Building a preview…"
+  activity.economy: "💰 Checking your balance…"
+reminder:
+  fired: "⏰ {0}"
+guide:
+  bar: "🧭 {0} {1} {2} blocks · height {3}"
+  arrived: "You have arrived at {0}."
+  world_changed: "You left the world where {0} is; guidance ended."

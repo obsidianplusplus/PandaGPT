@@ -26,7 +26,9 @@ public final class QuietPolicy {
         /** 生命或饥饿值偏低。 */
         VITALS,
         /** 入夜时远离家。 */
-        NIGHTFALL
+        NIGHTFALL,
+        /** 玩家刚刚死亡。 */
+        DEATH
     }
 
     /**

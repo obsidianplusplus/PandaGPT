@@ -6,6 +6,7 @@ prefix:
   vision: "[Panda दृष्टि]"
   perception: "[Panda बोध]"
   suggestion: "[Panda सुझाव]"
+  reminder: "[Panda अनुस्मारक]"
 admin:
   usage: "/pandaadmin <reload|status|clearchat>"
   cleared: "Panda के सत्र, अवलोकन, दृष्टि कैप्चर और लंबित क्रियाएँ साफ़ कर दी गईं; सहेजे गए स्थान अलग से साफ़ करने होंगे।"
@@ -96,6 +97,7 @@ suggest:
   low_health: "आपका स्वास्थ्य कम है।"
   low_food: "आपको भूख लग रही है; जल्दी कुछ खा लें।"
   nightfall: "रात हो रही है और आप घर से लगभग {0} ब्लॉक दूर हैं।"
+  death: "आप {0} के पास मरे और {1} आइटम ढेर गिरे; वे लगभग 5 मिनट में गायब होंगे।"
 mode:
   assist: "सहायता"
   quiet: "शांत"
@@ -111,6 +113,7 @@ memory:
   name_too_long: "नाम अधिकतम 64 अक्षरों का हो सकता है।"
   queue_unavailable: "स्मृति सहेजने की कतार उपलब्ध नहीं है।"
   auto_home_name: "घर"
+  death_point_name: "मृत्यु स्थान"
 config:
   provider_invalid: "panda.model_selection.provider का मान openai या gemini होना चाहिए"
   url_invalid: "{0}.api_url अमान्य है"
@@ -135,6 +138,7 @@ config:
   language_invalid: "भाषा फ़ाइल {0} मान्य YAML नहीं है"
   skill_invalid: "स्किल फ़ाइल {0} अमान्य है: name (छोटे अक्षर, अंक, हाइफ़न) और description वाला --- हेडर चाहिए।"
   prompt_invalid: "प्रॉम्प्ट फ़ाइल {0} बहुत बड़ी या अमान्य है।"
+  map_url_invalid: "panda.features.map_url http:// या https:// से शुरू होना चाहिए"
 log:
   enabled: "PandaGPT सक्रिय: Paper 26.3 / Java 25; {0}"
   no_api_key: "चुने गए AI प्रदाता के पास API कुंजी नहीं है; सेट होने तक प्रश्न अस्वीकार किए जाएँगे।"
@@ -150,6 +154,7 @@ log:
   texture_preload_failed: "टेक्सचर पूर्व-लोड विफल रहा: {0}"
   vision_sampling_error: "दृश्य सैंपलिंग त्रुटि: {0}"
   vision_render_failed: "दृश्य रेंडर या सहेजना विफल रहा: {0}: {1}"
+  integration_failed: "प्लगइन एकीकरण लोड नहीं हुआ (असंगत संस्करण?) और छोड़ दिया गया: {0}"
 intent:
   remembered: "✓ \"{0}\" याद रखा: {1}"
   remembered_home: "✓ अब यह आपका घर है: {0}"
@@ -170,3 +175,11 @@ agent:
   activity.nearby: "👂 आसपास के जीव देख रहा हूँ…"
   activity.knowledge: "📖 सर्वर गाइड पढ़ रहा हूँ…"
   activity.look: "👀 आपका दृश्य देख रहा हूँ, हिलें नहीं…"
+  activity.build: "🏗 पूर्वावलोकन बना रहा हूँ…"
+  activity.economy: "💰 बैलेंस देख रहा हूँ…"
+reminder:
+  fired: "⏰ {0}"
+guide:
+  bar: "🧭 {0} {1} {2} ब्लॉक · ऊँचाई {3}"
+  arrived: "आप {0} पहुँच गए।"
+  world_changed: "आप {0} वाली दुनिया से निकल गए; मार्गदर्शन समाप्त।"

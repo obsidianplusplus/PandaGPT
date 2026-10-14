@@ -27,8 +27,30 @@ class SkillLibraryTest {
                 .register(GoalTools.create(plugin))
                 .register(WorldTools.create(plugin))
                 .register(VisionTools.create(plugin))
-                .register(CommandTools.create(plugin));
+                .register(CommandTools.create(plugin))
+                .register(BuildTools.create(plugin))
+                .register(NavigationTools.create(plugin))
+                .register(ReminderTools.create(plugin))
+                .register(JournalTools.create(plugin))
+                .register(InspectTools.create(plugin));
+        // 外部插件的 API 在测试类路径上，可以实例化全部适配器检查技能与工具的对应关系。
+        Set<String> integrationIds = new HashSet<>();
+        for (var spec : cn.panda.pandagpt.integration.Integrations.SPECS) {
+            var integration = cn.panda.pandagpt.integration.Integrations.load(spec);
+            assertEquals(spec.id(), integration.id());
+            integrationIds.add(spec.id());
+            registry.register(integration.tools(plugin));
+        }
         var skills = SkillLibrary.load(null, Set.of());
+        for (Skill skill : skills.all()) {
+            for (String requirement : skill.requires()) {
+                assertTrue(integrationIds.contains(requirement), skill.name() + " requires unknown " + requirement);
+            }
+        }
+        var withoutPlugins = SkillLibrary.load(null, Set.of(), requirement -> false);
+        assertNull(withoutPlugins.get("economy"));
+        assertNull(withoutPlugins.get("quests-and-jobs"));
+        assertNotNull(withoutPlugins.get("building"));
         assertEquals(SkillLibrary.BUILT_IN.size(), skills.all().size());
         Set<String> owned = new HashSet<>();
         for (Skill skill : skills.all()) {

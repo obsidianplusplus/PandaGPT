@@ -190,4 +190,36 @@ class SpatialMemoryTest {
             assertEquals(32, memory.view(player).landmarks().size());
         }
     }
+
+    @Test
+    void notesPersistAcrossReloadsAndLegacyFilesWithoutNotesStillLoad() throws Exception {
+        UUID player = UUID.randomUUID(), legacy = UUID.randomUUID();
+        Files.writeString(
+                folder.resolve(legacy + ".json"),
+                "{\"version\":1,\"data\":{\"landmarks\":[],\"mode\":\"assist\",\"goal\":\"\",\"quantity\":1}}");
+        try (var memory = new SpatialMemory(folder, 4, s -> fail(s))) {
+            memory.view(player);
+            memory.view(legacy);
+            assertTrue(memory.drain(5000));
+            assertTrue(memory.view(legacy).notes().isEmpty());
+            assertTrue(memory.addNote(player, new SpatialMemory.Note("喜欢中式建筑", "fact", 1)));
+            assertTrue(memory.addNote(player, new SpatialMemory.Note("明天挖石英", "todo", 2)));
+            memory.remember(player, landmark(UUID.randomUUID(), "家"));
+            assertTrue(memory.drain(5000));
+            assertTrue(memory.context(player, UUID.randomUUID(), 0).contains("[fact] 喜欢中式建筑"));
+        }
+        try (var reloaded = new SpatialMemory(folder, 4, s -> fail(s))) {
+            reloaded.view(player);
+            assertTrue(reloaded.drain(5000));
+            assertEquals(2, reloaded.view(player).notes().size());
+            assertEquals(1, reloaded.view(player).landmarks().size(), "remembering a place keeps the notes");
+            reloaded.removeNotes(player, n -> n.text().contains("石英"));
+            assertTrue(reloaded.drain(5000));
+            assertEquals(
+                    List.of("喜欢中式建筑"),
+                    reloaded.view(player).notes().stream()
+                            .map(SpatialMemory.Note::text)
+                            .toList());
+        }
+    }
 }

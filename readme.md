@@ -1,4 +1,4 @@
-# 🐼 PandaGPT 3.0
+# 🐼 PandaGPT 3.1
 
 为 **Minecraft Java 版 / Paper 26.3** 提供真实纹理视觉重建、对象指代、局部空间与实体观察、地点记忆、安静的目标辅助，以及需要玩家确认的命令提案。
 
@@ -10,7 +10,7 @@
    ```bash
 mvn --batch-mode --no-transfer-progress clean verify
 ```
-2. 将 `target/PandaGPT-3.0.0.jar` 放入 Paper 26.3 的 `plugins` 目录，重启服务器；升级时移除旧 PandaGPT JAR。
+2. 将 `target/PandaGPT-3.1.0.jar` 放入 Paper 26.3 的 `plugins` 目录，重启服务器；升级时移除旧 PandaGPT JAR。
 3. 修改 `plugins/PandaGPT/config.yml`：选择服务商、模型、API 地址与密钥。也可通过服务器进程环境变量 `PANDAGPT_OPENAI_API_KEY` / `PANDAGPT_GEMINI_API_KEY` 提供密钥；非空环境变量优先于文件。
 4. 在 `knowledge.md` 中填写本服真实的规则、经济、领地、传送及插件说明。
 5. 执行 `/pandaadmin reload`，通过 `/pandaadmin status` 查看所选服务是否已配置。
@@ -100,18 +100,74 @@ always: false
 
 **提示词（Prompt）**：`plugins/PandaGPT/prompts/system.md`（每次对话的系统提示）与 `proactive.md`（主动回合）。模板使用 `{{personality}}`、`{{language}}`、`{{skills}}`、`{{snapshot}}`、`{{memory}}`、`{{knowledge}}`、`{{pending}}`、`{{signal}}` 等变量，修改后执行 `/pandaadmin reload` 生效。
 
-**工具一览**
+**工具一览**（共 60 个；外部插件工具只在安装对应插件时出现）
 
 | 技能 | 工具 |
 |---|---|
-| panda | get_player_status、set_assistance、forget_conversation、respond_to_pending_action、stay_silent（仅主动回合） |
+| panda（常驻） | get_player_status、set_assistance、forget_conversation、respond_to_pending_action、stay_silent |
 | places | remember_place、forget_place、list_places、locate_place |
+| navigation | guide_to、stop_guidance、map_link |
 | goals | set_goal、clear_goal、goal_status |
 | crafting | find_recipes、craftable_now |
 | survival | nearby_entities、world_conditions |
 | vision | look、focus_object、recall_surroundings |
+| building | preview_structure、clear_preview |
+| reminders | set_reminder、list_reminders、cancel_reminder |
+| journal | last_death、player_statistics、advancement_progress |
+| notes | add_note、list_notes、remove_note |
+| items | inspect_item |
+| trading | villager_trades |
 | commands | propose_command、list_server_commands |
-| server-guide | search_server_knowledge |
+| server-guide | search_server_knowledge、server_plugins |
+| economy（Vault） | economy_balance、economy_can_afford、rank_display |
+| placeholders（PlaceholderAPI） | resolve_placeholders、list_placeholder_expansions |
+| ranks（LuckPerms） | rank_info、rank_tracks、check_permission |
+| regions（WorldGuard） | regions_here |
+| claims（GriefPrevention） | claim_here、my_claims |
+| towny（Towny） | towny_status、towny_plot_here |
+| lands（Lands） | lands_here、my_lands |
+| essentials（EssentialsX） | essentials_homes、essentials_warps、essentials_status |
+| block-history（CoreProtect） | block_history |
+| mcmmo（mcMMO） | mcmmo_skills |
+| auraskills（AuraSkills） | auraskills_profile |
+
+另有只含知识、不带工具的技能：teleport（出行规划）、combat（战斗与 Boss）、farming（农业）、redstone（红石）、enchanting（附魔）、exploration（探索）、new-player（新手引导）、quests-and-jobs（任务与职业插件，需 PlaceholderAPI）。
+
+## 外部插件集成
+
+PandaGPT 以软依赖方式对接常见插件。服务器装了哪个，Agent 就多一项能力；没装时相关工具与技能自动隐藏，不需要任何配置。插件版本不兼容时只在控制台警告并跳过该集成，不影响启动。
+
+| 插件 | 集成编号 | Agent 能做什么 |
+|---|---|---|
+| Vault（及 EssentialsX、CMI 等经济插件） | economy | 查余额、能否买得起、权限组与聊天前缀 |
+| PlaceholderAPI | placeholders | 解析变量，读取任务、职业、商店、排行榜、统计等数千个扩展的数据 |
+| LuckPerms | ranks | 权限组、继承、前后缀、会员到期、晋升路线、检查某个权限 |
+| WorldGuard | regions | 所在区域、是否主人/成员、区域标志、能否建造与 PvP |
+| GriefPrevention | claims | 领地归属、信任等级、自己的领地与剩余领地块 |
+| Towny | towny | 城镇与国家、职位、城镇银行、脚下地块与售价 |
+| Lands | lands | 领地归属、是否受信任与角色、自己的领地 |
+| EssentialsX | essentials | 家、传送点（含坐标与距离）、AFK、邮件、禁言、监禁、/back 位置 |
+| CoreProtect | block-history | 查询方块最近被谁放置或破坏（需 `pandagpt.blockhistory`，后台线程查询） |
+| mcMMO | mcmmo | 技能等级、升级所需经验、总战力 |
+| AuraSkills | auraskills | 技能等级、属性、法力 |
+
+所有集成只读取提问玩家本人的数据或公开信息；任何会改变状态的操作（付款、传送、圈地）都通过需玩家确认的命令提案完成。没有专门适配器的插件（Jobs、Quests、BetonQuest、商店、拍卖行等）由 PlaceholderAPI 变量、`server_plugins`、`list_server_commands` 与服务器资料共同覆盖。
+
+`panda.integrations.disabled` 可以关闭指定集成；`placeholder_denylist` 中的片段（默认包含 ip、address、token 等）会阻止对应变量被解析。
+
+## 内置创意功能
+
+| 功能 | 你可以这样说 | 说明 |
+|---|---|---|
+| 建筑幽灵预览 | `panda 在这里给我设计一个 7×7 的木屋` | Agent 用方块、实心、空心、墙、线、圆柱、球、金字塔组合设计，假方块只有你能看到，不改动世界，并列出还缺的材料 |
+| 粒子导航 | `panda 带我回家` / `panda 带我去死的地方` | 动作栏箭头、距离、高度差，前方一段私有粒子路线，到达后自动结束 |
+| 提醒 | `panda 十分钟后提醒我收麦子` / `panda 天黑前叫我回家` | 支持现实分钟数、日落、入夜、日出 |
+| 死亡回溯 | `panda 我刚死在哪？东西还在吗？` | 记录死亡点、原因、掉落物与剩余时间；死亡后 Agent 会主动提醒 |
+| 统计与成就 | `panda 我今天挖了多少钻石？` / `panda 我下一步做什么成就？` | 生涯与本次上线的统计，未完成成就按接近程度排序 |
+| 个人笔记 | `panda 记一下我喜欢中式建筑` | 待办、偏好、备忘长期保存，Agent 之后会参考 |
+| 物品检查 | `panda 我这把剑还能用多久？` | 耐久、附魔、修复费用 |
+| 村民交易 | `panda 附近谁卖经验修补？` | 列出看得见的村民与流浪商人的交易 |
+| 地图链接 | `panda 给我个地图链接` | 服主在 `panda.features.map_url` 配置网页地图后可用 |
 
 主动回合只能使用只读工具（以及 stay_silent），不能提出命令或修改玩家状态。工具结果、资料与快照在提示词中被声明为数据而非指令。
 
@@ -169,6 +225,7 @@ always: false
 | pandagpt.actions | OP | 接收并确认命令提案（commands 技能） |
 | pandagpt.vision | OP | look、focus_object 与后台观察 |
 | pandagpt.vision.debug | OP | 用粒子显示射线命中点与对象轮廓 |
+| pandagpt.blockhistory | OP | 让 Agent 查询 CoreProtect 方块记录 |
 | pandagpt.admin | OP | 重载、状态查询、清除全服会话 |
 
 ## 验证范围与后续方向

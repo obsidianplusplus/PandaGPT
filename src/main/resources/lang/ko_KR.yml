@@ -6,6 +6,7 @@ prefix:
   vision: "[Panda 비전]"
   perception: "[Panda 감지]"
   suggestion: "[Panda 팁]"
+  reminder: "[Panda 알림]"
 admin:
   usage: "/pandaadmin <reload|status|clearchat>"
   cleared: "Panda 세션, 관찰, 비전 캡처, 확인 대기 작업을 지웠습니다. 저장된 장소는 따로 지워야 합니다."
@@ -96,6 +97,7 @@ suggest:
   low_health: "체력이 낮아요."
   low_food: "배가 고파지고 있어요. 뭔가 드세요."
   nightfall: "곧 밤이에요. 집까지 약 {0}블록이에요."
+  death: "{0} 근처에서 사망해 아이템 {1}묶음을 떨어뜨렸어요. 약 5분 후 사라져요."
 mode:
   assist: "지원"
   quiet: "조용히"
@@ -111,6 +113,7 @@ memory:
   name_too_long: "이름은 최대 64자입니다."
   queue_unavailable: "기억 저장 대기열을 사용할 수 없습니다."
   auto_home_name: "집"
+  death_point_name: "사망 지점"
 config:
   provider_invalid: "panda.model_selection.provider는 openai 또는 gemini여야 합니다"
   url_invalid: "{0}.api_url이 올바르지 않습니다"
@@ -135,6 +138,7 @@ config:
   language_invalid: "언어 파일 {0}의 YAML이 올바르지 않습니다"
   skill_invalid: "스킬 파일 {0}이(가) 올바르지 않습니다: name(소문자, 숫자, 하이픈)과 description이 있는 --- 헤더가 필요합니다."
   prompt_invalid: "프롬프트 파일 {0}이(가) 너무 크거나 올바르지 않습니다."
+  map_url_invalid: "panda.features.map_url은 http:// 또는 https://로 시작해야 합니다"
 log:
   enabled: "PandaGPT 활성화됨: Paper 26.3 / Java 25; {0}"
   no_api_key: "선택한 AI 서비스에 API 키가 없습니다. 설정 전까지 질문은 거부됩니다."
@@ -150,6 +154,7 @@ log:
   texture_preload_failed: "텍스처 미리 불러오기에 실패했습니다: {0}"
   vision_sampling_error: "비전 샘플링 오류: {0}"
   vision_render_failed: "비전 렌더링 또는 저장 실패: {0}: {1}"
+  integration_failed: "외부 플러그인 연동을 불러오지 못해 건너뛰었습니다(버전 비호환 가능): {0}"
 intent:
   remembered: "✓ \"{0}\"을(를) 기억했어요: {1}"
   remembered_home: "✓ 여기를 당신의 집으로 기억했어요: {0}"
@@ -170,3 +175,11 @@ agent:
   activity.nearby: "👂 주변 생물 확인 중…"
   activity.knowledge: "📖 서버 자료 확인 중…"
   activity.look: "👀 보고 있어요, 움직이지 마세요…"
+  activity.build: "🏗 미리보기 만드는 중…"
+  activity.economy: "💰 잔액 확인 중…"
+reminder:
+  fired: "⏰ {0}"
+guide:
+  bar: "🧭 {0} {1} {2}블록 · 높이 차 {3}"
+  arrived: "{0}에 도착했어요."
+  world_changed: "{0}이(가) 있는 월드를 떠나 안내를 종료했어요."

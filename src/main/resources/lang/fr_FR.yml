@@ -6,6 +6,7 @@ prefix:
   vision: "[Panda Vision]"
   perception: "[Panda Perception]"
   suggestion: "[Panda Conseil]"
+  reminder: "[Panda Rappel]"
 admin:
   usage: "/pandaadmin <reload|status|clearchat>"
   cleared: "Sessions, observations, captures visuelles et actions en attente de Panda effacées ; les lieux enregistrés doivent être effacés séparément."
@@ -96,6 +97,7 @@ suggest:
   low_health: "Votre santé est basse."
   low_food: "Vous avez faim ; mangez bientôt."
   nightfall: "La nuit tombe et vous êtes à environ {0} blocs de chez vous."
+  death: "Vous êtes mort près de {0} et avez lâché {1} piles d'objets ; elles disparaissent dans environ 5 minutes."
 mode:
   assist: "assistance"
   quiet: "silencieux"
@@ -111,6 +113,7 @@ memory:
   name_too_long: "Les noms font au maximum 64 caractères."
   queue_unavailable: "La file d'enregistrement de la mémoire est indisponible."
   auto_home_name: "Maison"
+  death_point_name: "Lieu de mort"
 config:
   provider_invalid: "panda.model_selection.provider doit valoir openai ou gemini"
   url_invalid: "{0}.api_url est invalide"
@@ -135,6 +138,7 @@ config:
   language_invalid: "Le fichier de langue {0} n'est pas un YAML valide"
   skill_invalid: "Le fichier de compétence {0} est invalide : il faut un en-tête --- avec name (minuscules, chiffres, tirets) et description."
   prompt_invalid: "Le fichier de prompt {0} est trop volumineux ou invalide."
+  map_url_invalid: "panda.features.map_url doit commencer par http:// ou https://"
 log:
   enabled: "PandaGPT activé : Paper 26.3 / Java 25 ; {0}"
   no_api_key: "Le fournisseur d'IA sélectionné n'a pas de clé API ; les questions seront refusées tant qu'elle n'est pas configurée."
@@ -150,6 +154,7 @@ log:
   texture_preload_failed: "Échec du préchargement des textures : {0}"
   vision_sampling_error: "Erreur d'échantillonnage visuel : {0}"
   vision_render_failed: "Échec du rendu ou de l'enregistrement visuel : {0} : {1}"
+  integration_failed: "L'intégration du plugin n'a pas pu être chargée (version incompatible ?) et a été ignorée : {0}"
 intent:
   remembered: "✓ « {0} » mémorisé : {1}"
   remembered_home: "✓ C'est désormais votre maison : {0}"
@@ -170,3 +175,11 @@ agent:
   activity.nearby: "👂 Je surveille les créatures proches…"
   activity.knowledge: "📖 Je lis le guide du serveur…"
   activity.look: "👀 Je regarde votre vue, ne bougez pas…"
+  activity.build: "🏗 Je construis un aperçu…"
+  activity.economy: "💰 Je consulte votre solde…"
+reminder:
+  fired: "⏰ {0}"
+guide:
+  bar: "🧭 {0} {1} {2} blocs · hauteur {3}"
+  arrived: "Vous êtes arrivé à {0}."
+  world_changed: "Vous avez quitté le monde de {0} ; le guidage est terminé."

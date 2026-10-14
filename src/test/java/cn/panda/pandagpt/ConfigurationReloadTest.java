@@ -23,6 +23,7 @@ class ConfigurationReloadTest {
         when(plugin.getServer()).thenReturn(server);
         when(plugin.getLogger()).thenReturn(Logger.getAnonymousLogger());
         when(server.recipeIterator()).thenAnswer(invocation -> Collections.emptyIterator());
+        when(server.getPluginManager()).thenReturn(mock(org.bukkit.plugin.PluginManager.class));
         byte[] defaults;
         try (var resource = getClass().getResourceAsStream("/config.yml")) {
             defaults = resource.readAllBytes();

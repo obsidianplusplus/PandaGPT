@@ -6,6 +6,7 @@ prefix:
   vision: "[Panda Visión]"
   perception: "[Panda Percepción]"
   suggestion: "[Panda Consejo]"
+  reminder: "[Panda Recordatorio]"
 admin:
   usage: "/pandaadmin <reload|status|clearchat>"
   cleared: "Se borraron las sesiones, observaciones, capturas de visión y acciones pendientes de Panda; los lugares guardados se borran por separado."
@@ -96,6 +97,7 @@ suggest:
   low_health: "Tu salud está baja."
   low_food: "Tienes hambre; come algo pronto."
   nightfall: "Está anocheciendo y estás a unos {0} bloques de casa."
+  death: "Moriste cerca de {0} y soltaste {1} pilas de objetos; desaparecen en unos 5 minutos."
 mode:
   assist: "asistencia"
   quiet: "silencioso"
@@ -111,6 +113,7 @@ memory:
   name_too_long: "Los nombres pueden tener como máximo 64 caracteres."
   queue_unavailable: "La cola de guardado de la memoria no está disponible."
   auto_home_name: "Casa"
+  death_point_name: "Punto de muerte"
 config:
   provider_invalid: "panda.model_selection.provider debe ser openai o gemini"
   url_invalid: "{0}.api_url no es válida"
@@ -135,6 +138,7 @@ config:
   language_invalid: "El archivo de idioma {0} no es YAML válido"
   skill_invalid: "El archivo de habilidad {0} no es válido: necesita una cabecera --- con name (minúsculas, dígitos, guiones) y description."
   prompt_invalid: "El archivo de prompt {0} es demasiado grande o no es válido."
+  map_url_invalid: "panda.features.map_url debe empezar por http:// o https://"
 log:
   enabled: "PandaGPT activado: Paper 26.3 / Java 25; {0}"
   no_api_key: "El proveedor de IA seleccionado no tiene clave de API; las preguntas se rechazarán hasta configurarla."
@@ -150,6 +154,7 @@ log:
   texture_preload_failed: "Falló la precarga de texturas: {0}"
   vision_sampling_error: "Error de muestreo visual: {0}"
   vision_render_failed: "Falló el renderizado o guardado visual: {0}: {1}"
+  integration_failed: "La integración del plugin no se pudo cargar (¿versión incompatible?) y se omitió: {0}"
 intent:
   remembered: "✓ Recordado «{0}»: {1}"
   remembered_home: "✓ Ahora este es tu hogar: {0}"
@@ -170,3 +175,11 @@ agent:
   activity.nearby: "👂 Revisando criaturas cercanas…"
   activity.knowledge: "📖 Leyendo la guía del servidor…"
   activity.look: "👀 Mirando tu vista, no te muevas…"
+  activity.build: "🏗 Construyendo una vista previa…"
+  activity.economy: "💰 Consultando tu saldo…"
+reminder:
+  fired: "⏰ {0}"
+guide:
+  bar: "🧭 {0} {1} {2} bloques · altura {3}"
+  arrived: "Has llegado a {0}."
+  world_changed: "Saliste del mundo donde está {0}; la guía terminó."
