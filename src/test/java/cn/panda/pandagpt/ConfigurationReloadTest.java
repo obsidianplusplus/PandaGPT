@@ -71,9 +71,11 @@ class ConfigurationReloadTest {
             assertEquals(legacy, Files.readString(folder.resolve("config-v1-backup.yml")));
             assertEquals(2, plugin.settings().historyRounds());
             assertEquals("custom-model", plugin.settings().model());
+            assertEquals("test-key", plugin.settings().apiKey());
+            assertTrue(Files.exists(folder.resolve("config-v2-backup.yml")));
             assertFalse(plugin.settings().allowExecution());
             assertEquals(
-                    2,
+                    3,
                     YamlConfiguration.loadConfiguration(
                                     folder.resolve("config.yml").toFile())
                             .getInt("config_version"));

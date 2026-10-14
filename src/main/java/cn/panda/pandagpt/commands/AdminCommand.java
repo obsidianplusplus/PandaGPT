@@ -45,6 +45,7 @@ public final class AdminCommand implements CommandExecutor, TabCompleter {
             case "reload" -> {
                 try {
                     plugin.loadService();
+                    plugin.downloadMissingAssets();
                     Lang.send(sender, Prefix.PANDA, NamedTextColor.GREEN, "admin.reloaded");
                 } catch (Exception e) {
                     Lang.send(

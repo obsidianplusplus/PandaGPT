@@ -58,7 +58,7 @@ action:
   cancelled: "취소했어요. 명령어는 실행되지 않아요."
 vision:
   disabled: "비전 재구성이 꺼져 있습니다."
-  assets_missing: "텍스처 리소스가 없습니다. 관리자가 tools/download_vanilla_assets.py를 실행하거나 textures.packs를 설정한 뒤 다시 불러와야 합니다."
+  assets_missing: "텍스처 리소스가 아직 준비되지 않았어요. 플러그인이 Mojang 공식 서버에서 자동으로 내려받는 중이거나 실패했습니다(콘솔 확인). textures.packs를 설정한 뒤 리로드할 수도 있어요."
   no_permission: "비전 재구성을 사용할 권한이 없습니다."
   no_debug_permission: "샘플링 입자를 표시할 권한이 없습니다."
   busy: "비전 샘플링이 바쁩니다. 잠시 후 다시 시도하세요."
@@ -115,9 +115,9 @@ memory:
   auto_home_name: "집"
   death_point_name: "사망 지점"
 config:
-  provider_invalid: "panda.model_selection.provider는 openai 또는 gemini여야 합니다"
-  url_invalid: "{0}.api_url이 올바르지 않습니다"
-  url_insecure: "{0}.api_url은 자격 증명, 쿼리, 프래그먼트가 없는 HTTPS여야 합니다"
+  provider_invalid: "panda.model_selection.provider는 다음 중 하나여야 합니다: {0}"
+  url_invalid: "{0} 값이 올바르지 않습니다"
+  url_insecure: "{0}은(는) 자격 증명, 쿼리, 프래그먼트 없는 HTTPS여야 합니다"
   executor_unsupported: "command_awareness.executor는 player만 지원합니다"
   model_invalid: "모델 이름이 올바르지 않습니다"
   proxy_host_empty: "프록시 호스트가 비어 있습니다"
@@ -140,6 +140,10 @@ config:
   prompt_invalid: "프롬프트 파일 {0}이(가) 너무 크거나 올바르지 않습니다."
   map_url_invalid: "panda.features.map_url은 http:// 또는 https://로 시작해야 합니다"
 log:
+  assets_failed: "공식 텍스처 다운로드 실패: {0}. 시각 샘플링을 사용할 수 없습니다. 나중에 리로드해 다시 시도하거나 textures.packs를 설정하세요."
+  assets_ready: "공식 텍스처를 검증하고 렌더링 리소스 {0}개를 {1}에 추출했습니다."
+  assets_downloading: "Mojang 공식 서버에서 {0} 렌더링 리소스를 내려받아 검증하는 중…"
+  migrated_v2: "v2 설정을 백업했고 openai/gemini 키와 주소를 panda.model_selection으로 옮겼습니다."
   enabled: "PandaGPT 활성화됨: Paper 26.3 / Java 25; {0}"
   no_api_key: "선택한 AI 서비스에 API 키가 없습니다. 설정 전까지 질문은 거부됩니다."
   enable_failed: "PandaGPT를 활성화할 수 없습니다: {0}"

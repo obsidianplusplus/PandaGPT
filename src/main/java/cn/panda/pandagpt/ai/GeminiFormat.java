@@ -88,8 +88,10 @@ final class GeminiFormat implements WireFormat {
                     }
                 }
                 default -> {
-                    parts.add(text(m.content(), null));
-                    if (m.image() != null) {
+                    boolean sendImage = m.image() != null && settings.visionInput();
+                    String content = m.image() != null && !sendImage ? m.content() + "\n" + IMAGE_OMITTED : m.content();
+                    parts.add(text(content, null));
+                    if (sendImage) {
                         JsonObject data = new JsonObject();
                         data.addProperty("mimeType", m.image().mediaType());
                         data.addProperty("data", m.image().base64());

@@ -1,10 +1,4 @@
-config_version: 2
-openai:
-  api_key: '' # 也可以在服务器进程中设置环境变量 PANDAGPT_OPENAI_API_KEY。
-  api_url: 'https://api.openai.com/v1/chat/completions'
-gemini:
-  api_key: '' # 也可以在服务器进程中设置环境变量 PANDAGPT_GEMINI_API_KEY。
-  api_url: 'https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent'
+config_version: 3
 panda:
   language:
     default: 'zh_CN' # 控制台与未匹配语言的默认语言：zh_CN zh_TW en_US ja_JP ko_KR es_ES fr_FR de_DE ru_RU pt_BR ar_SA hi_IN
@@ -54,6 +48,7 @@ panda:
     save_images: true # 每个 UUID 只保留最新一组文件，位于 captures/<UUID>/；不提供公开 HTTP 访问。
     textures:
       enabled: true # 使用真实 PNG 纹理；模型缺失时不会静默改用地图色。
+      auto_download: true # 缺少 vanilla-<版本>.zip 时，插件自动从 Mojang 官方下载客户端、校验 SHA-1 并只提取渲染资源。
       packs:
         - 'assets/vanilla-26.3.zip' # 相对于 plugins/PandaGPT；支持文件夹、ZIP 或客户端 JAR。
         # - 'assets/server-pack.zip' # 后面的包覆盖前面的包。
@@ -69,11 +64,83 @@ panda:
     placeholder_denylist: ['ip', 'address', 'password', 'token', 'email', 'uuid'] # 包含这些片段的变量一律不解析，防止泄露隐私。
     block_history_days: 7 # CoreProtect 方块记录最多查询的天数（需要 pandagpt.blockhistory 权限）。
   model_selection:
-    provider: 'gemini'
-    openai:
+    provider: 'gemini' # openai gemini anthropic azure xai mistral groq openrouter deepseek qwen moonshot zhipu doubao siliconflow custom
+    # 只需填写所选服务商的 api_key；模型名称会随服务商更新，请以服务商控制台为准。
+    openai: # OpenAI
+      api_key: '' # 也可以设置环境变量 PANDAGPT_<服务商>_API_KEY，例如 PANDAGPT_OPENAI_API_KEY
+      api_url: 'https://api.openai.com/v1/chat/completions'
       model: 'gpt-4.1-mini'
-    gemini:
-      model: 'gemini-3.8-flash' # 请确认你的 API 账户可以使用该模型。
+      vision: true # 模型是否接受图片；关闭后视觉采样只以文字结果交给模型。
+    gemini: # Google Gemini；%s 会替换为模型名
+      api_key: ''
+      api_url: 'https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent'
+      model: 'gemini-3.8-flash'
+      vision: true
+    anthropic: # Anthropic Claude（原生 Messages 接口）
+      api_key: ''
+      api_url: 'https://api.anthropic.com/v1/messages'
+      model: 'claude-sonnet-5-5'
+      vision: true
+    azure: # Azure OpenAI：填写 https://<资源名>.openai.azure.com/openai/v1/chat/completions，model 为部署名
+      api_key: ''
+      api_url: ''
+      model: 'gpt-4.1-mini'
+      vision: true
+    xai: # xAI Grok
+      api_key: ''
+      api_url: 'https://api.x.ai/v1/chat/completions'
+      model: 'grok-4'
+      vision: true
+    mistral: # Mistral AI
+      api_key: ''
+      api_url: 'https://api.mistral.ai/v1/chat/completions'
+      model: 'mistral-medium-latest'
+      vision: true
+    groq: # Groq
+      api_key: ''
+      api_url: 'https://api.groq.com/openai/v1/chat/completions'
+      model: 'openai/gpt-oss-120b'
+      vision: false
+    openrouter: # OpenRouter：一个密钥使用数百个模型
+      api_key: ''
+      api_url: 'https://openrouter.ai/api/v1/chat/completions'
+      model: 'openai/gpt-4.1-mini'
+      vision: true
+    deepseek: # DeepSeek 深度求索
+      api_key: ''
+      api_url: 'https://api.deepseek.com/chat/completions'
+      model: 'deepseek-chat'
+      vision: false
+    qwen: # 阿里云百炼 通义千问
+      api_key: ''
+      api_url: 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions'
+      model: 'qwen-plus'
+      vision: false
+    moonshot: # 月之暗面 Kimi
+      api_key: ''
+      api_url: 'https://api.moonshot.cn/v1/chat/completions'
+      model: 'kimi-k2-turbo-preview'
+      vision: false
+    zhipu: # 智谱 GLM
+      api_key: ''
+      api_url: 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+      model: 'glm-4.6'
+      vision: false
+    doubao: # 火山方舟 豆包
+      api_key: ''
+      api_url: 'https://ark.cn-beijing.volces.com/api/v3/chat/completions'
+      model: 'doubao-seed-1-6-250615'
+      vision: true
+    siliconflow: # 硅基流动
+      api_key: ''
+      api_url: 'https://api.siliconflow.cn/v1/chat/completions'
+      model: 'deepseek-ai/DeepSeek-V3'
+      vision: false
+    custom: # 任意 OpenAI Chat Completions 兼容接口（需支持工具调用）
+      api_key: ''
+      api_url: ''
+      model: ''
+      vision: false
   requests:
     workers: 4
     queue_size: 32

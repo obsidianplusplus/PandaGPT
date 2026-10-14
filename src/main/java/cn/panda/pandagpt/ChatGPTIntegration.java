@@ -35,11 +35,14 @@ import cn.panda.pandagpt.perception.SpatialMemory;
 import cn.panda.pandagpt.service.AssistantService;
 import cn.panda.pandagpt.util.PandaLogger;
 import cn.panda.pandagpt.vision.VisionController;
+import cn.panda.pandagpt.vision.VisionSettings;
 import cn.panda.pandagpt.vision.texture.TextureLibrary;
+import cn.panda.pandagpt.vision.texture.VanillaAssets;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
@@ -48,7 +51,9 @@ import java.nio.file.StandardCopyOption;
 import java.time.Clock;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.InvalidConfigurationException;
@@ -63,7 +68,7 @@ import org.bukkit.scheduler.BukkitTask;
  * <p>重载时先完整构建并校验新的模块，全部成功后才替换正在运行的实例；失败时保留原服务。线程：服务器主线程。
  */
 public final class ChatGPTIntegration extends JavaPlugin {
-    private static final int CONFIG_VERSION = 2;
+    private static final int CONFIG_VERSION = 3;
     private static final int MAX_KNOWLEDGE_BYTES = 32768;
 
     private volatile Settings settings;
@@ -79,6 +84,8 @@ public final class ChatGPTIntegration extends JavaPlugin {
     private volatile Integrations.Detected integrations = new Integrations.Detected(List.of(), List.of());
     private BukkitTask cleanup;
     private BukkitTask visionTick;
+    // 正在下载的资源包，避免重载时重复下载同一个文件。
+    private final Set<Path> downloading = ConcurrentHashMap.newKeySet();
 
     @Override
     public void onEnable() {
@@ -99,6 +106,7 @@ public final class ChatGPTIntegration extends JavaPlugin {
                 }
             }
             loadService();
+            downloadMissingAssets();
             // 玩家没有任何命令；唯一的命令是服主使用的 /pandaadmin。
             AdminCommand command = new AdminCommand(this);
             Objects.requireNonNull(getCommand("pandaadmin")).setExecutor(command);
@@ -146,6 +154,9 @@ public final class ChatGPTIntegration extends JavaPlugin {
         }
         if (version < 2) {
             migrateV1(candidate, path, folder);
+        }
+        if (version < 3) {
+            migrateV2(candidate, path, folder);
         }
         try (InputStream defaultsStream = Objects.requireNonNull(getResource("config.yml"));
                 Reader reader = new InputStreamReader(defaultsStream, StandardCharsets.UTF_8)) {
@@ -272,6 +283,39 @@ public final class ChatGPTIntegration extends JavaPlugin {
         }
     }
 
+    /** 缺少 vanilla-<版本>.zip 时在后台从 Mojang 官方下载，完成后通知视觉模块。服主自备的资源包不会被下载。线程：主线程。 */
+    public void downloadMissingAssets() {
+        Settings next = settings;
+        VisionSettings vision = next.vision();
+        List<Path> packs = VisionController.texturePaths(vision, getDataFolder().toPath());
+        if (!vision.enabled() || !vision.textured() || !vision.autoDownload()) {
+            return;
+        }
+        for (Path pack : packs) {
+            Optional<String> version = VanillaAssets.versionOf(pack);
+            if (Files.isReadable(pack) || version.isEmpty() || !downloading.add(pack)) {
+                continue;
+            }
+            getLogger().info(Lang.console("log.assets_downloading", version.get()));
+            Thread.ofVirtual().name("pandagpt-assets").start(() -> {
+                try (HttpClient client = HttpAiProvider.newClient(next)) {
+                    VanillaAssets.Result result = VanillaAssets.download(client, version.get(), pack);
+                    getLogger().info(Lang.console("log.assets_ready", result.files(), pack.getFileName()));
+                    if (isEnabled()) {
+                        getServer().getScheduler().runTask(this, () -> this.vision.refreshAssets());
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                } catch (Exception e) {
+                    String reason = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
+                    getLogger().warning(Lang.console("log.assets_failed", reason));
+                } finally {
+                    downloading.remove(pack);
+                }
+            });
+        }
+    }
+
     // v1 → v2：备份原文件，把按消息计数的 history_size 换算为完整问答轮数。
     private void migrateV1(YamlConfiguration candidate, Path path, Path folder) throws IOException {
         Path backup = folder.resolve("config-v1-backup.yml");
@@ -282,8 +326,27 @@ public final class ChatGPTIntegration extends JavaPlugin {
             candidate.set("panda.history_rounds", Math.max(0, candidate.getInt("panda.history_size", 5) / 2));
         }
         candidate.set("panda.history_size", null);
-        candidate.set("config_version", CONFIG_VERSION);
+        candidate.set("config_version", 2);
         getLogger().info(Lang.console("log.migrated_v1"));
+    }
+
+    // v2 → v3：顶层的 openai/gemini 密钥与地址并入 panda.model_selection.<服务商>，与模型名放在一起。
+    private void migrateV2(YamlConfiguration candidate, Path path, Path folder) throws IOException {
+        Path backup = folder.resolve("config-v2-backup.yml");
+        if (!Files.exists(backup)) {
+            Files.copy(path, backup);
+        }
+        for (String provider : List.of("openai", "gemini")) {
+            for (String field : List.of("api_key", "api_url")) {
+                String legacy = candidate.getString(provider + "." + field);
+                if (legacy != null && !legacy.isBlank()) {
+                    candidate.set("panda.model_selection." + provider + "." + field, legacy);
+                }
+            }
+            candidate.set(provider, null);
+        }
+        candidate.set("config_version", CONFIG_VERSION);
+        getLogger().info(Lang.console("log.migrated_v2"));
     }
 
     private static void saveAtomically(YamlConfiguration configuration, Path path) throws IOException {

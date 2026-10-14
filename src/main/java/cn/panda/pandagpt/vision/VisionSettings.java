@@ -22,6 +22,7 @@ public record VisionSettings(
         boolean saveImages,
         boolean textured,
         List<String> texturePacks,
+        boolean autoDownload,
         int textureCacheMiB,
         int cellsPerTick) {
 
@@ -45,6 +46,7 @@ public record VisionSettings(
                 c.getBoolean("panda.vision.save_images", true),
                 c.getBoolean("panda.vision.textures.enabled", true),
                 packs(c),
+                c.getBoolean("panda.vision.textures.auto_download", true),
                 number(c, "textures.cache_mib", 64, 8, 256),
                 number(c, "cells_per_tick", 8192, 64, 32768));
     }

@@ -58,7 +58,7 @@ action:
   cancelled: "रद्द किया; कमांड नहीं चलेगी।"
 vision:
   disabled: "दृश्य पुनर्निर्माण बंद है।"
-  assets_missing: "टेक्सचर संसाधन मौजूद नहीं हैं। व्यवस्थापक को tools/download_vanilla_assets.py चलाना चाहिए या textures.packs सेट करके फिर से लोड करना चाहिए।"
+  assets_missing: "टेक्सचर संसाधन अभी तैयार नहीं हैं: प्लगइन उन्हें Mojang से डाउनलोड कर रहा है, या डाउनलोड विफल हुआ (कंसोल देखें)। आप textures.packs सेट करके रीलोड भी कर सकते हैं।"
   no_permission: "आपके पास दृश्य पुनर्निर्माण का उपयोग करने की अनुमति नहीं है।"
   no_debug_permission: "आपके पास सैंपलिंग कण दिखाने की अनुमति नहीं है।"
   busy: "दृश्य सैंपलिंग व्यस्त है; कृपया बाद में प्रयास करें।"
@@ -115,9 +115,9 @@ memory:
   auto_home_name: "घर"
   death_point_name: "मृत्यु स्थान"
 config:
-  provider_invalid: "panda.model_selection.provider का मान openai या gemini होना चाहिए"
-  url_invalid: "{0}.api_url अमान्य है"
-  url_insecure: "{0}.api_url क्रेडेंशियल, क्वेरी या फ़्रैगमेंट के बिना HTTPS होना चाहिए"
+  provider_invalid: "panda.model_selection.provider इनमें से एक होना चाहिए: {0}"
+  url_invalid: "{0} अमान्य है"
+  url_insecure: "{0} बिना क्रेडेंशियल, क्वेरी या फ़्रैगमेंट के HTTPS होना चाहिए"
   executor_unsupported: "command_awareness.executor के लिए केवल player समर्थित है"
   model_invalid: "अमान्य मॉडल नाम"
   proxy_host_empty: "प्रॉक्सी होस्ट खाली है"
@@ -140,6 +140,10 @@ config:
   prompt_invalid: "प्रॉम्प्ट फ़ाइल {0} बहुत बड़ी या अमान्य है।"
   map_url_invalid: "panda.features.map_url http:// या https:// से शुरू होना चाहिए"
 log:
+  assets_failed: "आधिकारिक टेक्सचर डाउनलोड विफल: {0}। विज़न उपलब्ध नहीं रहेगा; बाद में रीलोड करें या textures.packs सेट करें।"
+  assets_ready: "आधिकारिक टेक्सचर सत्यापित: {0} रेंडर संसाधन {1} में निकाले गए।"
+  assets_downloading: "Mojang से {0} रेंडर संसाधन डाउनलोड और सत्यापित किए जा रहे हैं…"
+  migrated_v2: "v2 कॉन्फ़िग का बैकअप लिया गया; openai/gemini की कुंजियाँ और URL panda.model_selection में ले जाए गए।"
   enabled: "PandaGPT सक्रिय: Paper 26.3 / Java 25; {0}"
   no_api_key: "चुने गए AI प्रदाता के पास API कुंजी नहीं है; सेट होने तक प्रश्न अस्वीकार किए जाएँगे।"
   enable_failed: "PandaGPT सक्रिय नहीं हो सका: {0}"

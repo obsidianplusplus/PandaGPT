@@ -16,6 +16,7 @@ public record Settings(
         String apiKey,
         String apiUrl,
         String model,
+        boolean visionInput,
         String personality,
         String trigger,
         boolean cancelChat,
@@ -62,37 +63,40 @@ public record Settings(
 
     public static Settings load(FileConfiguration c) {
         Provider provider = Provider.parse(text(c, "panda.model_selection.provider", "gemini"));
-        String key = c.getString(provider.id() + ".api_key", "").trim();
+        String section = "panda.model_selection." + provider.id() + ".";
+        String key = c.getString(section + "api_key", "").trim();
         // 非空环境变量优先于配置文件，便于不把密钥写入磁盘。
         String environmentKey = System.getenv("PANDAGPT_" + provider.id().toUpperCase(Locale.ROOT) + "_API_KEY");
         if (environmentKey != null && !environmentKey.isBlank()) {
             key = environmentKey.trim();
         }
-        String url = text(
-                c,
-                provider.id() + ".api_url",
-                provider == Provider.OPENAI
-                        ? "https://api.openai.com/v1/chat/completions"
-                        : "https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent");
+        String url = c.getString(section + "api_url", provider.defaultUrl());
+        if (url == null || url.isBlank()) {
+            url = provider.defaultUrl();
+        }
+        if (url.isBlank()) {
+            // Azure 与自定义兼容接口没有通用地址，必须由服主填写。
+            throw new LocalizedException("config.empty", section + "api_url");
+        }
         // 迁移 v1 的 Gemini 地址：密钥改为放在请求头中传输。
-        url = url.replace("?key=%s", "");
+        url = url.strip().replace("?key=%s", "");
         URI uri;
         try {
             uri = URI.create(url.replace("%s", "model"));
         } catch (RuntimeException e) {
-            throw new LocalizedException("config.url_invalid", provider.id());
+            throw new LocalizedException("config.url_invalid", section + "api_url");
         }
         if (!"https".equals(uri.getScheme())
                 || uri.getHost() == null
                 || uri.getUserInfo() != null
                 || uri.getRawQuery() != null
                 || uri.getFragment() != null) {
-            throw new LocalizedException("config.url_insecure", provider.id());
+            throw new LocalizedException("config.url_insecure", section + "api_url");
         }
         if (!"player".equalsIgnoreCase(c.getString("panda.command_awareness.executor", "player"))) {
             throw new LocalizedException("config.executor_unsupported");
         }
-        String model = text(c, "panda.model_selection." + provider.id() + ".model", "");
+        String model = text(c, section + "model", provider.defaultModel());
         if (!model.matches("[A-Za-z0-9._:/-]+")) {
             throw new LocalizedException("config.model_invalid");
         }
@@ -114,6 +118,7 @@ public record Settings(
                 key,
                 url,
                 model,
+                c.getBoolean(section + "vision", provider.defaultVision()),
                 text(c, "panda.personality", "You are Panda, a Minecraft assistant."),
                 trigger,
                 c.getBoolean("panda.cancel_chat_message", true),

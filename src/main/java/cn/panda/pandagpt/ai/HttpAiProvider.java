@@ -41,7 +41,7 @@ public final class HttpAiProvider implements AiProvider {
     private final WireFormat format;
 
     public HttpAiProvider(Settings settings) {
-        this(settings, build(settings));
+        this(settings, newClient(settings));
     }
 
     HttpAiProvider(Settings settings, HttpClient client) {
@@ -50,7 +50,8 @@ public final class HttpAiProvider implements AiProvider {
         this.format = WireFormat.of(settings.provider());
     }
 
-    private static HttpClient build(Settings settings) {
+    /** 按配置的超时与代理创建 HTTP 客户端；不跟随跳转。插件的其他联网功能（例如下载官方纹理）也复用它。 */
+    public static HttpClient newClient(Settings settings) {
         HttpClient.Builder builder = HttpClient.newBuilder()
                 .connectTimeout(settings.connectTimeout())
                 .followRedirects(HttpClient.Redirect.NEVER);

@@ -58,7 +58,7 @@ action:
   cancelled: "キャンセルしました。コマンドは実行されません。"
 vision:
   disabled: "ビジョン再構成は無効です。"
-  assets_missing: "テクスチャ素材がありません。管理者は tools/download_vanilla_assets.py を実行するか、textures.packs を設定して再読み込みしてください。"
+  assets_missing: "テクスチャ素材の準備がまだです。プラグインが Mojang 公式から自動ダウンロード中か、失敗しました（コンソール参照）。textures.packs を設定してリロードすることもできます。"
   no_permission: "ビジョン再構成を使用する権限がありません。"
   no_debug_permission: "サンプリングパーティクルを表示する権限がありません。"
   busy: "ビジョンサンプリングが混雑しています。しばらくしてからお試しください。"
@@ -115,9 +115,9 @@ memory:
   auto_home_name: "家"
   death_point_name: "死亡地点"
 config:
-  provider_invalid: "panda.model_selection.provider は openai または gemini である必要があります"
-  url_invalid: "{0}.api_url が無効です"
-  url_insecure: "{0}.api_url は認証情報・クエリ・フラグメントを含まない HTTPS である必要があります"
+  provider_invalid: "panda.model_selection.provider は次のいずれかである必要があります：{0}"
+  url_invalid: "{0} が無効です"
+  url_insecure: "{0} は認証情報・クエリ・フラグメントを含まない HTTPS である必要があります"
   executor_unsupported: "command_awareness.executor は player のみ対応しています"
   model_invalid: "モデル名が無効です"
   proxy_host_empty: "プロキシホストが空です"
@@ -140,6 +140,10 @@ config:
   prompt_invalid: "プロンプトファイル {0} が大きすぎるか無効です。"
   map_url_invalid: "panda.features.map_url は http:// または https:// で始める必要があります"
 log:
+  assets_failed: "公式テクスチャのダウンロードに失敗しました：{0}。視覚サンプリングは使えません。後でリロードして再試行するか textures.packs を設定してください。"
+  assets_ready: "公式テクスチャを検証し、{0} 個の描画素材を {1} に展開しました。"
+  assets_downloading: "Mojang 公式から {0} の描画素材をダウンロードして検証しています…"
+  migrated_v2: "v2 設定をバックアップし、openai/gemini のキーと URL を panda.model_selection に移動しました。"
   enabled: "PandaGPT を有効化しました：Paper 26.3 / Java 25。{0}"
   no_api_key: "選択された AI サービスに API キーがありません。設定されるまで質問は拒否されます。"
   enable_failed: "PandaGPT を有効化できません：{0}"

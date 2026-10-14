@@ -109,7 +109,7 @@ class AssistantServiceTest {
 
     private static Settings settings(Map<String, Object> overrides) {
         var c = TestSupport.config();
-        c.set("gemini.api_key", "test");
+        c.set("panda.model_selection.gemini.api_key", "test");
         c.set("panda.cooldown", 0);
         overrides.forEach(c::set);
         return Settings.load(c);

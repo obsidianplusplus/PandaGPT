@@ -58,7 +58,7 @@ action:
   cancelled: "Cancelled; the command will not run."
 vision:
   disabled: "Vision reconstruction is disabled."
-  assets_missing: "Texture assets are missing. An administrator should run tools/download_vanilla_assets.py or configure textures.packs and reload."
+  assets_missing: "Texture assets are not ready yet: the plugin is downloading them from Mojang, or the download failed (see console). You can also configure textures.packs and reload."
   no_permission: "You do not have permission to use vision reconstruction."
   no_debug_permission: "You do not have permission to show sampling particles."
   busy: "Vision sampling is busy; please try again later."
@@ -115,9 +115,9 @@ memory:
   auto_home_name: "Home"
   death_point_name: "Death point"
 config:
-  provider_invalid: "panda.model_selection.provider must be openai or gemini"
-  url_invalid: "{0}.api_url is invalid"
-  url_insecure: "{0}.api_url must be HTTPS without credentials, query or fragment"
+  provider_invalid: "panda.model_selection.provider must be one of: {0}"
+  url_invalid: "{0} is invalid"
+  url_insecure: "{0} must be HTTPS without credentials, query or fragment"
   executor_unsupported: "Only command_awareness.executor: player is supported"
   model_invalid: "Invalid model name"
   proxy_host_empty: "Proxy host is empty"
@@ -140,6 +140,10 @@ config:
   prompt_invalid: "Prompt file {0} is too large or invalid."
   map_url_invalid: "panda.features.map_url must start with http:// or https://"
 log:
+  assets_failed: "Official texture download failed: {0}. Vision captures stay unavailable; reload later to retry or configure textures.packs."
+  assets_ready: "Official textures verified: extracted {0} render assets to {1}."
+  assets_downloading: "Downloading and verifying {0} render assets from Mojang…"
+  migrated_v2: "v2 config backed up; openai/gemini keys and URLs moved into panda.model_selection."
   enabled: "PandaGPT enabled: Paper 26.3 / Java 25; {0}"
   no_api_key: "The selected AI provider has no API key; questions will be rejected until it is configured."
   enable_failed: "Cannot enable PandaGPT: {0}"

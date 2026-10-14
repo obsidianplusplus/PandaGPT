@@ -5,12 +5,15 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import cn.panda.pandagpt.TestSupport;
+import cn.panda.pandagpt.config.Provider;
 import cn.panda.pandagpt.config.Settings;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import java.io.IOException;
+import java.net.URI;
 import java.net.http.*;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.Test;
 
@@ -19,6 +22,13 @@ class HttpAiProviderTest {
         var config = TestSupport.config();
         config.set("panda.model_selection.provider", "openai");
         config.set("panda.model_selection.openai.model", "my-model");
+        return Settings.load(config);
+    }
+
+    private static Settings provider(String id, Map<String, Object> overrides) {
+        var config = TestSupport.config();
+        config.set("panda.model_selection.provider", id);
+        overrides.forEach(config::set);
         return Settings.load(config);
     }
 
@@ -150,6 +160,98 @@ class HttpAiProviderTest {
         assertEquals("{\"show_hits\":true}", gemini.toolCalls().getFirst().arguments());
         assertEquals("sig", gemini.toolCalls().getFirst().signature());
         assertTrue(gemini.toolCalls().getFirst().id().startsWith(ToolCall.GENERATED_PREFIX));
+    }
+
+    @Test
+    void anthropicMergesToolResultsIntoAlternatingUserMessages() {
+        var body = JsonParser.parseString(HttpAiProvider.buildBody(provider("anthropic", Map.of()), agentTurn(false)))
+                .getAsJsonObject();
+        assertEquals("claude-sonnet-5-5", body.get("model").getAsString());
+        assertEquals("system", body.get("system").getAsString());
+        var messages = body.getAsJsonArray("messages");
+        // user, assistant, user, assistant(两个 tool_use), user(两个 tool_result + 文字 + 图片)
+        assertEquals(5, messages.size());
+        var uses = messages.get(3).getAsJsonObject().getAsJsonArray("content");
+        assertEquals("tool_use", uses.get(0).getAsJsonObject().get("type").getAsString());
+        assertTrue(uses.get(1).getAsJsonObject().getAsJsonObject("input").isEmpty());
+        var results = messages.get(4).getAsJsonObject().getAsJsonArray("content");
+        assertEquals("tool_result", results.get(0).getAsJsonObject().get("type").getAsString());
+        assertEquals(
+                "call_1", results.get(0).getAsJsonObject().get("tool_use_id").getAsString());
+        assertEquals("image", results.get(3).getAsJsonObject().get("type").getAsString());
+        var tool = body.getAsJsonArray("tools").get(0).getAsJsonObject();
+        assertEquals("object", tool.getAsJsonObject("input_schema").get("type").getAsString());
+        assertEquals("auto", body.getAsJsonObject("tool_choice").get("type").getAsString());
+        var last = JsonParser.parseString(HttpAiProvider.buildBody(provider("anthropic", Map.of()), agentTurn(true)))
+                .getAsJsonObject();
+        assertEquals("none", last.getAsJsonObject("tool_choice").get("type").getAsString());
+    }
+
+    @Test
+    void anthropicResponsesAreParsed() throws Exception {
+        AiResponse result = HttpAiProvider.parseResponse(Provider.ANTHROPIC, """
+                {"stop_reason":"tool_use","content":[{"type":"thinking","thinking":"x"},{"type":"text","text":"Checking."},
+                {"type":"tool_use","id":"toolu_1","name":"look","input":{"show_hits":true}}]}
+                """);
+        assertEquals("Checking.", result.text());
+        assertEquals(
+                new ToolCall("toolu_1", "look", "{\"show_hits\":true}", null),
+                result.toolCalls().getFirst());
+        assertThrows(
+                IOException.class,
+                () -> HttpAiProvider.parseResponse(
+                        Provider.ANTHROPIC, "{\"stop_reason\":\"max_tokens\",\"content\":[]}"));
+    }
+
+    @Test
+    void compatibleProvidersUseTheirDefaultsAndDropImagesWithoutVision() {
+        Settings deepseek = provider("deepseek", Map.of());
+        assertEquals("https://api.deepseek.com/chat/completions", deepseek.apiUrl());
+        assertFalse(deepseek.visionInput());
+        var body = JsonParser.parseString(HttpAiProvider.buildBody(deepseek, agentTurn(false)))
+                .getAsJsonObject();
+        assertEquals("deepseek-chat", body.get("model").getAsString());
+        assertEquals(1000, body.get("max_tokens").getAsInt());
+        assertFalse(body.has("max_completion_tokens"));
+        var image = body.getAsJsonArray("messages").get(7).getAsJsonObject().get("content");
+        assertTrue(image.isJsonPrimitive());
+        assertTrue(image.getAsString().contains("image omitted"));
+        var withVision = JsonParser.parseString(HttpAiProvider.buildBody(
+                        provider("deepseek", Map.of("panda.model_selection.deepseek.vision", true)), agentTurn(false)))
+                .getAsJsonObject();
+        assertTrue(withVision
+                .getAsJsonArray("messages")
+                .get(7)
+                .getAsJsonObject()
+                .get("content")
+                .isJsonArray());
+    }
+
+    @Test
+    void azureUsesApiKeyHeaderAndRequiresAnEndpoint() {
+        assertThrows(IllegalArgumentException.class, () -> provider("azure", Map.of()));
+        assertThrows(IllegalArgumentException.class, () -> provider("custom", Map.of()));
+        Settings azure = provider(
+                "azure",
+                Map.of(
+                        "panda.model_selection.azure.api_url",
+                        "https://res.openai.azure.com/openai/v1/chat/completions",
+                        "panda.model_selection.azure.api_key",
+                        "k"));
+        var builder = HttpRequest.newBuilder(URI.create(azure.apiUrl()));
+        WireFormat.of(azure.provider()).authorize(builder, azure);
+        var headers = builder.GET().build().headers();
+        assertEquals("k", headers.firstValue("api-key").orElseThrow());
+        assertTrue(headers.firstValue("Authorization").isEmpty());
+    }
+
+    @Test
+    void everyProviderIdParsesAndUnknownIdsListTheChoices() {
+        for (Provider provider : Provider.values()) {
+            assertEquals(provider, Provider.parse(provider.id().toUpperCase()));
+        }
+        assertThrows(IllegalArgumentException.class, () -> Provider.parse("unknown"));
+        assertTrue(Provider.ids().contains("deepseek"));
     }
 
     @Test

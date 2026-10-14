@@ -58,7 +58,7 @@ action:
   cancelled: "Abgebrochen; der Befehl wird nicht ausgeführt."
 vision:
   disabled: "Die Sichtrekonstruktion ist deaktiviert."
-  assets_missing: "Textur-Ressourcen fehlen. Ein Administrator sollte tools/download_vanilla_assets.py ausführen oder textures.packs konfigurieren und neu laden."
+  assets_missing: "Die Texturen sind noch nicht bereit: Das Plugin lädt sie gerade von Mojang herunter, oder der Download ist fehlgeschlagen (siehe Konsole). Du kannst auch textures.packs konfigurieren und neu laden."
   no_permission: "Du hast keine Berechtigung für die Sichtrekonstruktion."
   no_debug_permission: "Du hast keine Berechtigung, Abtastpartikel anzuzeigen."
   busy: "Die Sichtabtastung ist ausgelastet; bitte versuche es später erneut."
@@ -115,9 +115,9 @@ memory:
   auto_home_name: "Zuhause"
   death_point_name: "Todespunkt"
 config:
-  provider_invalid: "panda.model_selection.provider muss openai oder gemini sein"
-  url_invalid: "{0}.api_url ist ungültig"
-  url_insecure: "{0}.api_url muss HTTPS ohne Zugangsdaten, Query oder Fragment sein"
+  provider_invalid: "panda.model_selection.provider muss einer der folgenden sein: {0}"
+  url_invalid: "{0} ist ungültig"
+  url_insecure: "{0} muss HTTPS ohne Zugangsdaten, Query oder Fragment sein"
   executor_unsupported: "Nur command_awareness.executor: player wird unterstützt"
   model_invalid: "Ungültiger Modellname"
   proxy_host_empty: "Der Proxy-Host ist leer"
@@ -140,6 +140,10 @@ config:
   prompt_invalid: "Die Prompt-Datei {0} ist zu groß oder ungültig."
   map_url_invalid: "panda.features.map_url muss mit http:// oder https:// beginnen"
 log:
+  assets_failed: "Download der offiziellen Texturen fehlgeschlagen: {0}. Die Sicht bleibt deaktiviert; später neu laden oder textures.packs konfigurieren."
+  assets_ready: "Offizielle Texturen geprüft: {0} Render-Ressourcen nach {1} extrahiert."
+  assets_downloading: "Lade und prüfe die Render-Ressourcen für {0} von Mojang…"
+  migrated_v2: "v2-Konfiguration gesichert; openai/gemini-Schlüssel und -URLs wurden nach panda.model_selection verschoben."
   enabled: "PandaGPT aktiviert: Paper 26.3 / Java 25; {0}"
   no_api_key: "Der gewählte KI-Anbieter hat keinen API-Schlüssel; Fragen werden abgelehnt, bis er eingerichtet ist."
   enable_failed: "PandaGPT kann nicht aktiviert werden: {0}"

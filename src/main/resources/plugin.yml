@@ -1,5 +1,5 @@
 name: PandaGPT
-version: '3.1.0'
+version: '3.2.0'
 main: cn.panda.pandagpt.ChatGPTIntegration
 api-version: '26.3'
 softdepend: [Vault, PlaceholderAPI, LuckPerms, WorldGuard, GriefPrevention, Towny, Lands, Essentials, CoreProtect, mcMMO, AuraSkills]

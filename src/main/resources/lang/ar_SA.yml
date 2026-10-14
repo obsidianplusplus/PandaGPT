@@ -58,7 +58,7 @@ action:
   cancelled: "تم الإلغاء؛ لن يُنفَّذ الأمر."
 vision:
   disabled: "إعادة البناء المرئي معطّلة."
-  assets_missing: "موارد الخامات مفقودة. على المشرف تشغيل tools/download_vanilla_assets.py أو ضبط textures.packs ثم إعادة التحميل."
+  assets_missing: "موارد الأنسجة غير جاهزة بعد: الإضافة تنزّلها من Mojang أو فشل التنزيل (راجع وحدة التحكم). يمكنك أيضًا ضبط textures.packs ثم إعادة التحميل."
   no_permission: "ليست لديك صلاحية استخدام إعادة البناء المرئي."
   no_debug_permission: "ليست لديك صلاحية عرض جسيمات أخذ العينات."
   busy: "أخذ العينات المرئية مشغول؛ حاول لاحقًا."
@@ -115,9 +115,9 @@ memory:
   auto_home_name: "المنزل"
   death_point_name: "مكان الوفاة"
 config:
-  provider_invalid: "يجب أن تكون قيمة panda.model_selection.provider إما openai أو gemini"
-  url_invalid: "{0}.api_url غير صالح"
-  url_insecure: "يجب أن يكون {0}.api_url عنوان HTTPS بدون بيانات اعتماد أو استعلام أو جزء"
+  provider_invalid: "يجب أن يكون panda.model_selection.provider أحد: {0}"
+  url_invalid: "{0} غير صالح"
+  url_insecure: "يجب أن يكون {0} بروتوكول HTTPS بلا بيانات اعتماد أو استعلام أو جزء"
   executor_unsupported: "القيمة الوحيدة المدعومة لـ command_awareness.executor هي player"
   model_invalid: "اسم النموذج غير صالح"
   proxy_host_empty: "مضيف الوكيل فارغ"
@@ -140,6 +140,10 @@ config:
   prompt_invalid: "ملف الموجّه {0} كبير جدًا أو غير صالح."
   map_url_invalid: "يجب أن يبدأ panda.features.map_url بـ http:// أو https://"
 log:
+  assets_failed: "فشل تنزيل الأنسجة الرسمية: {0}. ستبقى الرؤية غير متاحة؛ أعد التحميل لاحقًا أو اضبط textures.packs."
+  assets_ready: "تم التحقق من الأنسجة الرسمية واستخراج {0} موردًا إلى {1}."
+  assets_downloading: "جارٍ تنزيل موارد العرض لإصدار {0} من Mojang والتحقق منها…"
+  migrated_v2: "تم نسخ إعدادات v2 احتياطيًا ونُقلت مفاتيح وعناوين openai/gemini إلى panda.model_selection."
   enabled: "تم تفعيل PandaGPT: Paper 26.3 / Java 25؛ {0}"
   no_api_key: "لا يوجد مفتاح API لمزوّد الذكاء الاصطناعي المحدد؛ ستُرفض الأسئلة حتى يتم ضبطه."
   enable_failed: "تعذّر تفعيل PandaGPT: {0}"

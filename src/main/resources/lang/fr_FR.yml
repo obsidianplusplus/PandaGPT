@@ -58,7 +58,7 @@ action:
   cancelled: "Annulé ; la commande ne sera pas exécutée."
 vision:
   disabled: "La reconstruction visuelle est désactivée."
-  assets_missing: "Les ressources de textures sont absentes. Un administrateur doit exécuter tools/download_vanilla_assets.py ou configurer textures.packs puis recharger."
+  assets_missing: "Les textures ne sont pas encore prêtes : le plugin les télécharge depuis Mojang, ou le téléchargement a échoué (voir la console). Vous pouvez aussi configurer textures.packs puis recharger."
   no_permission: "Vous n'avez pas la permission d'utiliser la reconstruction visuelle."
   no_debug_permission: "Vous n'avez pas la permission d'afficher les particules d'échantillonnage."
   busy: "L'échantillonnage visuel est occupé ; réessayez plus tard."
@@ -115,9 +115,9 @@ memory:
   auto_home_name: "Maison"
   death_point_name: "Lieu de mort"
 config:
-  provider_invalid: "panda.model_selection.provider doit valoir openai ou gemini"
-  url_invalid: "{0}.api_url est invalide"
-  url_insecure: "{0}.api_url doit être en HTTPS, sans identifiants, requête ni fragment"
+  provider_invalid: "panda.model_selection.provider doit être l'un de : {0}"
+  url_invalid: "{0} est invalide"
+  url_insecure: "{0} doit être en HTTPS sans identifiants, requête ni fragment"
   executor_unsupported: "Seul command_awareness.executor: player est pris en charge"
   model_invalid: "Nom de modèle invalide"
   proxy_host_empty: "L'hôte du proxy est vide"
@@ -140,6 +140,10 @@ config:
   prompt_invalid: "Le fichier de prompt {0} est trop volumineux ou invalide."
   map_url_invalid: "panda.features.map_url doit commencer par http:// ou https://"
 log:
+  assets_failed: "Échec du téléchargement des textures officielles : {0}. La vision reste indisponible ; rechargez plus tard ou configurez textures.packs."
+  assets_ready: "Textures officielles vérifiées : {0} ressources extraites vers {1}."
+  assets_downloading: "Téléchargement et vérification des ressources de rendu {0} depuis Mojang…"
+  migrated_v2: "Configuration v2 sauvegardée ; les clés et URL openai/gemini ont été déplacées dans panda.model_selection."
   enabled: "PandaGPT activé : Paper 26.3 / Java 25 ; {0}"
   no_api_key: "Le fournisseur d'IA sélectionné n'a pas de clé API ; les questions seront refusées tant qu'elle n'est pas configurée."
   enable_failed: "Impossible d'activer PandaGPT : {0}"

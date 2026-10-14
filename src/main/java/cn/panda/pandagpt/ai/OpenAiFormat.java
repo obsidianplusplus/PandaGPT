@@ -1,5 +1,6 @@
 package cn.panda.pandagpt.ai;
 
+import cn.panda.pandagpt.config.Provider;
 import cn.panda.pandagpt.config.Settings;
 import cn.panda.pandagpt.i18n.LocalizedIOException;
 import com.google.gson.JsonArray;
@@ -13,7 +14,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-/** OpenAI Chat Completions 兼容格式，支持多轮工具调用与图片输入。 */
+/**
+ * OpenAI Chat Completions 兼容格式，支持多轮工具调用与图片输入。
+ *
+ * <p>OpenAI、Azure、xAI、Mistral、Groq、OpenRouter、DeepSeek、通义千问、Kimi、智谱、豆包、硅基流动与自定义兼容接口共用本格式。
+ */
 final class OpenAiFormat implements WireFormat {
     static final OpenAiFormat INSTANCE = new OpenAiFormat();
 
@@ -24,21 +29,25 @@ final class OpenAiFormat implements WireFormat {
 
     @Override
     public void authorize(HttpRequest.Builder builder, Settings settings) {
-        builder.header("Authorization", "Bearer " + settings.apiKey());
+        if (settings.provider() == Provider.AZURE) {
+            builder.header("api-key", settings.apiKey());
+        } else {
+            builder.header("Authorization", "Bearer " + settings.apiKey());
+        }
     }
 
     @Override
     public String body(Settings settings, AiRequest request) {
         JsonObject body = new JsonObject();
         body.addProperty("model", settings.model());
-        body.addProperty("max_completion_tokens", settings.maxOutputTokens());
+        body.addProperty(settings.provider().maxTokensField(), settings.maxOutputTokens());
         JsonArray messages = new JsonArray();
         JsonObject system = new JsonObject();
         system.addProperty("role", "system");
         system.addProperty("content", request.systemPrompt());
         messages.add(system);
         for (Message m : request.messages()) {
-            messages.add(message(m));
+            messages.add(message(m, settings.visionInput()));
         }
         body.add("messages", messages);
         if (!request.tools().isEmpty()) {
@@ -55,7 +64,7 @@ final class OpenAiFormat implements WireFormat {
         return body.toString();
     }
 
-    private static JsonObject message(Message m) {
+    private static JsonObject message(Message m, boolean vision) {
         JsonObject message = new JsonObject();
         message.addProperty("role", m.role());
         switch (m.role()) {
@@ -87,6 +96,8 @@ final class OpenAiFormat implements WireFormat {
             default -> {
                 if (m.image() == null) {
                     message.addProperty("content", m.content());
+                } else if (!vision) {
+                    message.addProperty("content", m.content() + "\n" + IMAGE_OMITTED);
                 } else {
                     JsonArray parts = new JsonArray();
                     JsonObject text = new JsonObject();
@@ -127,7 +138,9 @@ final class OpenAiFormat implements WireFormat {
         if (toolCalls != null) {
             for (JsonElement element : toolCalls) {
                 JsonObject call = element.getAsJsonObject();
-                if (!"function".equals(WireFormat.string(call, "type"))) {
+                // 部分兼容接口省略 type 字段。
+                String type = WireFormat.string(call, "type");
+                if (!type.isEmpty() && !type.equals("function")) {
                     continue;
                 }
                 JsonObject function = call.getAsJsonObject("function");

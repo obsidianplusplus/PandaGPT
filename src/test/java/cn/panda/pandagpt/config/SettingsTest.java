@@ -18,7 +18,7 @@ class SettingsTest {
     void honorsModelAndStripsLegacyKeyQuery() {
         var config = TestSupport.config();
         config.set("panda.model_selection.gemini.model", "custom-model");
-        config.set("gemini.api_url", "https://example.com/models/%s:generateContent?key=%s");
+        config.set("panda.model_selection.gemini.api_url", "https://example.com/models/%s:generateContent?key=%s");
         Settings settings = Settings.load(config);
         assertEquals("custom-model", settings.model());
         assertFalse(settings.apiUrl().contains("?"));
@@ -41,7 +41,7 @@ class SettingsTest {
     @Test
     void secretsNeverAppearInSettingsString() {
         var config = TestSupport.config();
-        config.set("gemini.api_key", "test-secret");
+        config.set("panda.model_selection.gemini.api_key", "test-secret");
         assertFalse(Settings.load(config).toString().contains("test-secret"));
     }
 }

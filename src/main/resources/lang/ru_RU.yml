@@ -58,7 +58,7 @@ action:
   cancelled: "Отменено; команда не будет выполнена."
 vision:
   disabled: "Визуальная реконструкция отключена."
-  assets_missing: "Отсутствуют ресурсы текстур. Администратору нужно запустить tools/download_vanilla_assets.py или настроить textures.packs и перезагрузить."
+  assets_missing: "Текстуры ещё не готовы: плагин скачивает их с серверов Mojang, или загрузка не удалась (см. консоль). Можно также указать textures.packs и перезагрузить."
   no_permission: "У вас нет прав на визуальную реконструкцию."
   no_debug_permission: "У вас нет прав на отображение частиц выборки."
   busy: "Визуальная выборка занята; попробуйте позже."
@@ -115,9 +115,9 @@ memory:
   auto_home_name: "Дом"
   death_point_name: "Место смерти"
 config:
-  provider_invalid: "panda.model_selection.provider должен быть openai или gemini"
-  url_invalid: "{0}.api_url недействителен"
-  url_insecure: "{0}.api_url должен использовать HTTPS без учётных данных, параметров запроса и фрагмента"
+  provider_invalid: "panda.model_selection.provider должен быть одним из: {0}"
+  url_invalid: "{0} недействителен"
+  url_insecure: "{0} должен быть HTTPS без учётных данных, параметров запроса и фрагмента"
   executor_unsupported: "Поддерживается только command_awareness.executor: player"
   model_invalid: "Недопустимое имя модели"
   proxy_host_empty: "Хост прокси не указан"
@@ -140,6 +140,10 @@ config:
   prompt_invalid: "Файл подсказки {0} слишком велик или недействителен."
   map_url_invalid: "panda.features.map_url должен начинаться с http:// или https://"
 log:
+  assets_failed: "Не удалось скачать официальные текстуры: {0}. Зрение недоступно; перезагрузите позже или укажите textures.packs."
+  assets_ready: "Официальные текстуры проверены: {0} ресурсов извлечено в {1}."
+  assets_downloading: "Скачиваю и проверяю ресурсы отрисовки {0} с серверов Mojang…"
+  migrated_v2: "Конфигурация v2 сохранена; ключи и адреса openai/gemini перенесены в panda.model_selection."
   enabled: "PandaGPT включён: Paper 26.3 / Java 25; {0}"
   no_api_key: "У выбранного ИИ-провайдера нет API-ключа; вопросы будут отклоняться до его настройки."
   enable_failed: "Не удаётся включить PandaGPT: {0}"

@@ -49,7 +49,7 @@ python3 tools/benchmark_performance.py
 
 ## 保守配置
 
-较弱机器或繁忙服务器可以先使用以下配置。修改后运行 `/pandaadmin reload`；新下载材质包也需要重载，资源可用性在初始化时检查，不在每次采样或 status 中访问磁盘。
+较弱机器或繁忙服务器可以先使用以下配置。修改后运行 `/pandaadmin reload`。插件自动下载的官方材质完成后会立即生效；手动放入的资源包需要重载，资源可用性不在每次采样或 status 中访问磁盘。
 
 ```yaml
 panda:

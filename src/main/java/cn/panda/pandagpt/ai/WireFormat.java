@@ -19,11 +19,15 @@ interface WireFormat {
     AiResponse parse(String json) throws IOException;
 
     static WireFormat of(Provider provider) {
-        return switch (provider) {
+        return switch (provider.wire()) {
             case OPENAI -> OpenAiFormat.INSTANCE;
             case GEMINI -> GeminiFormat.INSTANCE;
+            case ANTHROPIC -> AnthropicFormat.INSTANCE;
         };
     }
+
+    /** 当前模型不接受图片时，用这段说明代替图片。 */
+    String IMAGE_OMITTED = "[image omitted: the configured model does not accept image input]";
 
     /** 读取字符串字段；缺失或 null 视为空字符串。 */
     static String string(JsonObject object, String name) {

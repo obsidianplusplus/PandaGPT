@@ -15,14 +15,16 @@ jobs:
           distribution: temurin
           java-version: '25'
           cache: maven
-      - name: Prepare verified Minecraft 26.3 textures
-        run: python3 tools/download_vanilla_assets.py --version 26.3 --output "$RUNNER_TEMP/pandagpt-assets.zip"
+      - name: Prepare verified Minecraft 26.3 textures with the plugin's own downloader
+        run: |
+          mvn --batch-mode --no-transfer-progress -q compile dependency:build-classpath -Dmdep.outputFile="$RUNNER_TEMP/cp.txt" -Dmdep.includeScope=compile
+          java -cp "target/classes:$(cat "$RUNNER_TEMP/cp.txt")" cn.panda.pandagpt.vision.texture.VanillaAssets 26.3 "$RUNNER_TEMP/pandagpt-assets.zip"
       - name: Verify on Java 25 and Paper 26.3 with real PNG assets
         run: mvn --batch-mode --no-transfer-progress -Dpandagpt.test.assets="$RUNNER_TEMP/pandagpt-assets.zip" clean verify
       - uses: actions/upload-artifact@v4
         with:
           name: PandaGPT-Paper-26.3
           path: |
-            target/PandaGPT-3.1.0.jar
+            target/PandaGPT-3.2.0.jar
             target/performance-results.json
           if-no-files-found: error

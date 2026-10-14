@@ -58,7 +58,7 @@ action:
   cancelled: "已取消，命令不会执行。"
 vision:
   disabled: "视觉重建未开启。"
-  assets_missing: "缺少纹理资源。请管理员运行 tools/download_vanilla_assets.py，或配置 textures.packs 后重载。"
+  assets_missing: "纹理资源尚未就绪：插件正在从 Mojang 官方自动下载，或下载失败（见控制台）。也可以在 textures.packs 中配置资源包后重载。"
   no_permission: "你没有使用视觉重建的权限。"
   no_debug_permission: "你没有显示采样粒子的权限。"
   busy: "视觉采样忙碌，请稍后再试。"
@@ -115,9 +115,9 @@ memory:
   auto_home_name: "家"
   death_point_name: "死亡点"
 config:
-  provider_invalid: "panda.model_selection.provider 必须是 openai 或 gemini"
-  url_invalid: "{0}.api_url 无效"
-  url_insecure: "{0}.api_url 必须是 HTTPS，且不能包含凭据、查询参数或片段"
+  provider_invalid: "panda.model_selection.provider 必须是以下之一：{0}"
+  url_invalid: "{0} 无效"
+  url_insecure: "{0} 必须是 HTTPS，且不能包含凭据、查询参数或片段"
   executor_unsupported: "command_awareness.executor 只支持 player"
   model_invalid: "模型名称无效"
   proxy_host_empty: "代理主机为空"
@@ -140,6 +140,10 @@ config:
   prompt_invalid: "提示词文件 {0} 过大或无效。"
   map_url_invalid: "panda.features.map_url 必须以 http:// 或 https:// 开头"
 log:
+  assets_failed: "官方纹理下载失败：{0}。视觉采样将不可用，可稍后重载重试或手动配置 textures.packs。"
+  assets_ready: "官方纹理已校验，提取了 {0} 个渲染资源到 {1}。"
+  assets_downloading: "正在从 Mojang 官方下载并校验 {0} 渲染资源…"
+  migrated_v2: "已备份 v2 配置；openai/gemini 的密钥与地址已移入 panda.model_selection。"
   enabled: "PandaGPT 已启用：Paper 26.3 / Java 25；{0}"
   no_api_key: "所选模型服务没有 API 密钥；配置前所有提问都会被拒绝。"
   enable_failed: "无法启用 PandaGPT：{0}"

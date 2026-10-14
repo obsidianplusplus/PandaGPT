@@ -58,7 +58,7 @@ action:
   cancelled: "Cancelado; el comando no se ejecutará."
 vision:
   disabled: "La reconstrucción visual está desactivada."
-  assets_missing: "Faltan los recursos de texturas. Un administrador debe ejecutar tools/download_vanilla_assets.py o configurar textures.packs y recargar."
+  assets_missing: "Las texturas aún no están listas: el plugin las está descargando de Mojang o la descarga falló (ver consola). También puedes configurar textures.packs y recargar."
   no_permission: "No tienes permiso para usar la reconstrucción visual."
   no_debug_permission: "No tienes permiso para mostrar las partículas de muestreo."
   busy: "El muestreo visual está ocupado; inténtalo más tarde."
@@ -115,9 +115,9 @@ memory:
   auto_home_name: "Casa"
   death_point_name: "Punto de muerte"
 config:
-  provider_invalid: "panda.model_selection.provider debe ser openai o gemini"
-  url_invalid: "{0}.api_url no es válida"
-  url_insecure: "{0}.api_url debe ser HTTPS sin credenciales, consulta ni fragmento"
+  provider_invalid: "panda.model_selection.provider debe ser uno de: {0}"
+  url_invalid: "{0} no es válido"
+  url_insecure: "{0} debe ser HTTPS sin credenciales, consulta ni fragmento"
   executor_unsupported: "command_awareness.executor solo admite player"
   model_invalid: "Nombre de modelo no válido"
   proxy_host_empty: "El host del proxy está vacío"
@@ -140,6 +140,10 @@ config:
   prompt_invalid: "El archivo de prompt {0} es demasiado grande o no es válido."
   map_url_invalid: "panda.features.map_url debe empezar por http:// o https://"
 log:
+  assets_failed: "Falló la descarga de texturas oficiales: {0}. La visión no estará disponible; recarga más tarde o configura textures.packs."
+  assets_ready: "Texturas oficiales verificadas: se extrajeron {0} recursos a {1}."
+  assets_downloading: "Descargando y verificando los recursos de renderizado de {0} desde Mojang…"
+  migrated_v2: "Configuración v2 respaldada; las claves y URL de openai/gemini se movieron a panda.model_selection."
   enabled: "PandaGPT activado: Paper 26.3 / Java 25; {0}"
   no_api_key: "El proveedor de IA seleccionado no tiene clave de API; las preguntas se rechazarán hasta configurarla."
   enable_failed: "No se puede activar PandaGPT: {0}"

@@ -141,7 +141,9 @@ public final class VisionController implements AutoCloseable {
     private final ThreadPoolExecutor renderer;
     private final TextureLibrary textures;
     private final boolean ownsTextures;
-    private final boolean assetsPresent;
+    private final List<Path> packs;
+    // 自动下载完成后由主线程刷新。
+    private volatile boolean assetsPresent;
     private final LoadGovernor governor = new LoadGovernor();
     private final int cellLimit;
     private final SlicePermit slice = new SlicePermit();
@@ -168,7 +170,7 @@ public final class VisionController implements AutoCloseable {
         this.clock = clock;
         cellLimit = settings.cellsPerTick();
         folder = dataFolder.resolve("captures");
-        List<Path> packs = texturePaths(settings, dataFolder);
+        packs = texturePaths(settings, dataFolder);
         assetsPresent = packs.stream().allMatch(Files::isReadable);
         ownsTextures = textures == null;
         this.textures = textures == null ? new TextureLibrary(packs, settings.textureCacheMiB()) : textures;
@@ -188,7 +190,20 @@ public final class VisionController implements AutoCloseable {
                         }
                     }
                 };
-        if (settings.enabled() && settings.textured() && assetsPresent) {
+        preload();
+    }
+
+    /** 资源包下载完成后重新检查并预加载。线程：主线程。 */
+    public void refreshAssets() {
+        boolean present = packs.stream().allMatch(Files::isReadable);
+        if (present && !assetsPresent) {
+            assetsPresent = true;
+            preload();
+        }
+    }
+
+    private void preload() {
+        if (settings.enabled() && settings.textured() && assetsPresent && !renderer.isShutdown()) {
             renderer.execute(() -> {
                 try {
                     this.textures.preload();
