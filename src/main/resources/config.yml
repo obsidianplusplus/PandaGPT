@@ -1,37 +1,96 @@
+config_version: 2
 openai:
-  api_key: ""
-  api_url: "https://api.openai.com/v1/chat/completions" # OpenAI API URL (new addition)
+  api_key: '' # Alternatively set PANDAGPT_OPENAI_API_KEY on the server.
+  api_url: 'https://api.openai.com/v1/chat/completions'
 gemini:
-  api_key: ""
-  api_url: "https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s" # Gemini API URL (new addition)
-
+  api_key: '' # Alternatively set PANDAGPT_GEMINI_API_KEY on the server.
+  api_url: 'https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent'
 panda:
-  trigger_word: "panda"           # The keyword to trigger the Panda assistant
-  personality: "<Your personality> You are a Minecraft player who knows the game's history, features, and gameplay, as well as the tips and tricks that veteran players should be aware of. You are very helpful and share your experiences and insights. Please use Minecraft color codes (e.g., §a, §b, §c) and format codes (e.g., §l for bold, §o for italic) to format your self-description, making it look like the style of Hypixel server in Minecraft.\n\nPlease refer to Hypixel's text color scheme and note the following:\n\n1. Use multiple colors to distinguish different types of information. For example, use light blue or cyan to highlight your identity description, yellow or gold to emphasize your experience and insights, and green to show your helpfulness.\n2. Try to use contrasting colors to make key information more prominent.\n3. Use bold (§l) and italic (§o) formatting to highlight keywords or create visual variation.\n4. Consider how to structure your self-description clearly and make it easy to read.\n\nYour goal is to make this description look like it came from the Hypixel server in Minecraft, professional and attractive. Remember, it doesn’t need to be identical, just stylistically close." # Panda's personality description
-  cooldown: 5000                # Cooldown time (in milliseconds) between player interactions with Panda
-  cancel_chat_message: true     # Whether to cancel the original chat message that triggers Panda
-  history_size: 5               # Number of conversation history records Panda will keep
-
-  environment_awareness:
-    enabled: true # Controls whether environment awareness is enabled
-
-  command_awareness:
-    enabled: true # Whether to enable command awareness
-    executor: "player" # The identity of the command executor: op, player, console
-    max_executions: 3 # Maximum number of commands that can be executed per AI response
-
+  trigger_word: 'panda' # Matches panda or @panda at the start of a chat message.
+  personality: '你是 Minecraft 服务器助手 Panda。用玩家提问的语言简洁回答。根据提供的服务器事实回答；不知道就明确说明。不要声称已经执行任何尚未执行的动作。'
+  cooldown: 5000 # Milliseconds; each player may also have only one request in flight.
+  cancel_chat_message: true
+  history_rounds: 5 # Complete user/assistant pairs, not individual messages.
+  max_sessions: 1000
+  session_ttl_seconds: 1800
+  max_prompt_chars: 2000
+  context_char_budget: 16000 # Character budget, not an exact tokenizer count.
+  max_output_tokens: 1000
+  perception:
+    enabled: true
+    observe_seconds: 30 # Low-resolution 32x18 geometry observation; same shared tick budget as manual vision.
+    scene_ttl_seconds: 60 # Historical observations expire; changes invalidate known coordinates.
+    entity_radius: 20
+    max_entities: 16
+    max_players: 128
+    proactive: true # Local suggestions only; background observations never call a paid model.
+    suggestion_seconds: 900 # Minimum spacing between ordinary text suggestions, not a mandatory reminder.
+    routine_per_half_hour: 2 # Zero means no ordinary suggestions; urgent local risks are independently deduplicated.
+  vision:
+    enabled: true # Full PNG capture is explicit; enabled perception may schedule quiet geometry observations.
+    width: 160
+    height: 90
+    vertical_fov: 70 # Configured vertical FOV; server cannot read the real client FOV.
+    max_distance: 96 # Also clipped by reported/sending view distance and sent+loaded chunk membership.
+    rays_per_tick: 256 # Global cap shared across captures.
+    cells_per_tick: 8192 # Global DDA/survey/mark cell cap; rays pause inside traversal when exhausted.
+    time_budget_ms: 2 # Shared scheduled loop deadline; checked before each cell. Native API calls are not preemptible.
+    max_concurrent_captures: 2
+    timeout_ticks: 200
+    cooldown_seconds: 10
+    movement_tolerance: 0.35
+    angle_tolerance: 3
+    max_debug_particles: 64
+    save_images: true # Latest files per UUID in captures/<UUID>/; no public HTTP endpoint.
+    textures:
+      enabled: true # True PNG texels; no silent map-color replacement for missing models.
+      packs:
+        - 'assets/vanilla-26.3.zip' # Relative to plugins/PandaGPT; folders, ZIPs or client JARs.
+        # - 'assets/server-pack.zip' # Later packs override earlier packs.
+      cache_mib: 64 # Decoded PNG pixel budget. Animated PNGs use the first declared frame.
   model_selection:
-    provider: "gemini"  # Default model provider (openai or gemini)
+    provider: 'gemini'
     openai:
-      model: "gpt-3.5-turbo" # OpenAI model
+      model: 'gpt-4.1-mini'
     gemini:
-      model: "gemini-1.5-flash"    # Gemini model
-
+      model: 'gemini-3.8-flash' # Check availability for your API account.
+  requests:
+    workers: 4
+    queue_size: 32
+    connect_timeout_seconds: 10
+    timeout_seconds: 45
+    max_response_bytes: 1048576
+  environment_awareness:
+    enabled: true
+    radius: 20
+    max_entities: 8
+    max_recipes: 6
+  command_awareness:
+    enabled: true
+    allow_execution: false # AI text is never executed. Only tool proposals may be confirmed.
+    executor: 'player' # Only player is supported; never elevate privileges.
+    max_executions: 3
+    confirmation_ttl_seconds: 60
+    allowed_commands:
+      - help # Exact root allowlist. Review every command's argument semantics.
+    blocked_commands:
+      - op
+      - deop
+      - stop
+      - restart
+      - reload
+      - execute
+      - sudo
+      - panda
+      - pandaadmin
   logging:
-    enabled: true               # Whether to enable Panda's logging
-  proxy: # New proxy configuration
-    enabled: true         # Whether to enable proxy
-    host: "localhost"      # Proxy server host address
-    port: 10808          # Proxy server port
-    username: "" # Proxy username (optional)
-    password: ""  # Proxy password (optional)
+    enabled: true
+    conversations: false # Opt in to recording raw questions and model answers.
+    max_bytes: 1048576
+    files: 3
+  proxy:
+    enabled: false
+    host: 'localhost'
+    port: 10808
+    username: ''
+    password: ''

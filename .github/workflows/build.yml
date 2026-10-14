@@ -1,0 +1,28 @@
+name: Build and test
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - name: Prepare verified Minecraft 26.3 textures
+        run: python3 tools/download_vanilla_assets.py --version 26.3 --output "$RUNNER_TEMP/pandagpt-assets.zip"
+      - name: Verify on Java 25 and Paper 26.3 with real PNG assets
+        run: mvn --batch-mode --no-transfer-progress -Dpandagpt.test.assets="$RUNNER_TEMP/pandagpt-assets.zip" clean verify
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PandaGPT-Paper-26.3
+          path: |
+            target/PandaGPT-2.1.1.jar
+            target/performance-results.json
+          if-no-files-found: error
