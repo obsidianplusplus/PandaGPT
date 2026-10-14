@@ -992,8 +992,8 @@ public final class PerceptionController implements AutoCloseable {
         State s = states.remove(player.getUniqueId());
         if (s != null) {
             hide(player, s);
-            memory.release(player.getUniqueId());
         }
+        memory.release(player.getUniqueId());
         timeline.remove(player.getUniqueId());
     }
 

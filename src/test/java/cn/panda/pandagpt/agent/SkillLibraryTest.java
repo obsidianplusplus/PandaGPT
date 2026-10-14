@@ -32,6 +32,7 @@ class SkillLibraryTest {
                 .register(NavigationTools.create(plugin))
                 .register(ReminderTools.create(plugin))
                 .register(JournalTools.create(plugin))
+                .register(MemoryTools.create(plugin))
                 .register(InspectTools.create(plugin));
         // 外部插件的 API 在测试类路径上，可以实例化全部适配器检查技能与工具的对应关系。
         Set<String> integrationIds = new HashSet<>();

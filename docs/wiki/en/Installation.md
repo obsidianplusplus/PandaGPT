@@ -30,7 +30,7 @@ plugins/PandaGPT/
 ├── config.yml          # main configuration
 ├── knowledge.md        # server documentation (rules, gameplay, plugins)
 ├── lang/*.yml          # 12 language files, editable
-├── skills/*.md         # 34 skills: edit, add or disable
+├── skills/*.md         # 35 skills: edit, add or disable
 ├── prompts/*.md        # system prompt templates
 ├── assets/             # auto-downloaded official textures (vanilla-26.3.zip)
 ├── memory/<UUID>.json  # each player's places, goals and notes

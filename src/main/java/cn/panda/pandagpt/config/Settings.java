@@ -1,6 +1,7 @@
 package cn.panda.pandagpt.config;
 
 import cn.panda.pandagpt.i18n.LocalizedException;
+import cn.panda.pandagpt.memory.MemorySettings;
 import cn.panda.pandagpt.perception.PerceptionSettings;
 import cn.panda.pandagpt.vision.VisionSettings;
 import java.net.URI;
@@ -51,7 +52,8 @@ public record Settings(
         VisionSettings vision,
         PerceptionSettings perception,
         AgentSettings agent,
-        FeatureSettings features) {
+        FeatureSettings features,
+        MemorySettings memory) {
 
     /** 代理配置；toString 不输出主机、账号与密码。 */
     public record Proxy(boolean enabled, String host, int port, String username, String password) {
@@ -153,7 +155,8 @@ public record Settings(
                 VisionSettings.load(c),
                 PerceptionSettings.load(c),
                 AgentSettings.load(c),
-                FeatureSettings.load(c));
+                FeatureSettings.load(c),
+                MemorySettings.load(c));
     }
 
     private static int number(FileConfiguration c, String path, int fallback, int min, int max) {

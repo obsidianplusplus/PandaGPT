@@ -12,6 +12,9 @@ class SettingsTest {
         assertFalse(settings.allowExecution());
         assertFalse(settings.proxy().enabled());
         assertEquals(5, settings.historyRounds());
+        assertTrue(settings.memory().enabled());
+        assertTrue(settings.memory().distillation());
+        assertEquals(6, settings.memory().recallLimit());
     }
 
     @Test
@@ -26,9 +29,13 @@ class SettingsTest {
 
     @Test
     void rejectsInvalidConfigurationBeforeCreatingService() {
-        for (String path :
-                new String[] {"panda.requests.workers", "panda.requests.queue_size", "panda.requests.timeout_seconds"
-                }) {
+        for (String path : new String[] {
+            "panda.requests.workers",
+            "panda.requests.queue_size",
+            "panda.requests.timeout_seconds",
+            "panda.memory.recall_limit",
+            "panda.memory.context_chars"
+        }) {
             var config = TestSupport.config();
             config.set(path, 0);
             assertThrows(IllegalArgumentException.class, () -> Settings.load(config));

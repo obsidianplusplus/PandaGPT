@@ -19,10 +19,10 @@
 <br/>
 ![Providers](https://img.shields.io/badge/模型服务商-15-8957e5?style=flat-square)
 ![Integrations](https://img.shields.io/badge/插件集成-11-d29922?style=flat-square)
-![Skills](https://img.shields.io/badge/技能-34-0a7ea4?style=flat-square)
+![Skills](https://img.shields.io/badge/技能-35-0a7ea4?style=flat-square)
 ![Languages](https://img.shields.io/badge/语言-12-cf222e?style=flat-square)
 
-[✨ 亮点](#-亮点) · [🎬 体验](#-一段对话) · [🚀 快速开始](#-快速开始) · [🤖 模型](#-支持的模型) · [🧩 功能](#-功能全景) · [🔌 插件](#-插件生态) · [📚 Wiki](docs/wiki/zh/Home.md)
+[✨ 亮点](#-亮点) · [🎬 体验](#-一段对话) · [🚀 快速开始](#-快速开始) · [🤖 模型](#-支持的模型) · [🧩 功能](#-功能全景) · [🔌 插件](#-插件生态) · [📚 Wiki](docs/wiki/zh/Home.md) · [📝 更新日志](CHANGELOG.md)
 
 </div>
 
@@ -41,7 +41,7 @@
 <td width="33%" valign="top">
 
 ### 🧠 真正的 Agent
-多步、并行的工具调用循环，60 个工具、34 个技能按需加载，自己决定先看、先查还是先问。
+多步、并行的工具调用循环，64 个工具、35 个技能按需加载，自己决定先看、先查还是先问。
 
 </td>
 <td width="33%" valign="top">
@@ -159,6 +159,7 @@ panda:
 
 | | 功能 | 你可以这样说 |
 |:---:|---|---|
+| 🧠 | **游戏记忆与记忆蒸馏** | “上次我为什么死了？” · “记住这次教训” · “整理我的记忆” |
 | 📍 | **地点记忆与导航** | “记住这里是我家” · “带我回家” |
 | 👁️ | **视觉重建与对象指认** | “我面前这是什么？” · “左边那个熔炉怎么用？” |
 | ⚒️ | **目标与真实配方** | “我想做一把铁镐” · “我现在能做什么？” |
@@ -189,8 +190,8 @@ Jobs、Quests、商店、拍卖行等通过 PlaceholderAPI 与服务器资料覆
 ```mermaid
 flowchart LR
     P["🎮 玩家说话"] --> A["🧠 Agent<br/>系统提示 + 技能目录"]
-    A -->|load_skill| S["📜 34 个技能"]
-    A -->|调用工具| T["🛠️ 60 个工具<br/>主线程执行"]
+    A -->|load_skill| S["📜 35 个技能"]
+    A -->|调用工具| T["🛠️ 64 个工具<br/>主线程执行"]
     T --> W["🌍 世界 · 背包 · 记忆"]
     T --> I["🔌 插件 API"]
     T --> V["👁️ 视觉重建"]
@@ -226,6 +227,7 @@ flowchart LR
 
 **核心机制**
 - 🧠 [Agent 与工具](docs/wiki/zh/Agent-and-Tools.md)
+- 🧠 [游戏记忆与记忆蒸馏](docs/wiki/zh/Game-Memory.md)
 - 📜 [技能与提示词](docs/wiki/zh/Skills-and-Prompts.md)
 - 🔔 [主动式助手](docs/wiki/zh/Proactive-Assistant.md)
 - 👁️ [视觉与感知](docs/wiki/zh/Vision-and-Perception.md)

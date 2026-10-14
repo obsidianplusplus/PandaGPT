@@ -16,7 +16,7 @@ Agent 的行为不是写死在代码里的，而是由两类文本文件决定�
 
 ```mermaid
 flowchart LR
-    A["系统提示<br/>只列 34 个技能的名称 + 一句话简介"] --> B{"模型判断<br/>需要哪个技能？"}
+    A["系统提示<br/>只列 35 个技能的名称 + 一句话简介"] --> B{"模型判断<br/>需要哪个技能？"}
     B -->|load_skill("building")| C["读取技能全文<br/>详细做法 + 解锁对应工具"]
     C --> D["调用 preview_structure 等工具"]
 ```
@@ -60,10 +60,10 @@ requires: essentials
 | 只在装了某插件时启用 | 在头部写 `requires: <集成编号或插件名>` |
 | 关闭技能 | `panda.agent.disabled_skills: [commands, vision]`，对应工具一并消失 |
 
-### 内置技能（34 个）
+### 内置技能（35 个）
 
 <details open>
-<summary><b>🧩 核心与通用（15 个，带工具）</b></summary>
+<summary><b>🧩 核心与通用（16 个，带工具）</b></summary>
 
 | 技能 | 用途 | 工具 |
 |---|---|---|
@@ -77,6 +77,7 @@ requires: essentials
 | `building` | 幽灵方块建筑预览与材料核对 | preview_structure, clear_preview |
 | `reminders` | 现实时间与游戏事件提醒 | set_reminder 等 3 个 |
 | `journal` | 死亡回溯、统计、成就进度 | last_death 等 3 个 |
+| `game-memory` | 游戏经历、事实、计划、经验的按需检索与独立蒸馏 | remember_game_memory 等 4 个 |
 | `notes` | 待办、偏好、备忘 | add_note 等 3 个 |
 | `items` | 物品耐久、附魔、修复费用 | inspect_item |
 | `trading` | 村民与流浪商人交易 | villager_trades |

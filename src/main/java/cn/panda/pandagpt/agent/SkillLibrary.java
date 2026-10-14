@@ -55,6 +55,7 @@ public final class SkillLibrary {
             "journal",
             "lands",
             "mcmmo",
+            "game-memory",
             "navigation",
             "new-player",
             "notes",

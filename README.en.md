@@ -19,10 +19,10 @@
 <br/>
 ![Providers](https://img.shields.io/badge/model_providers-15-8957e5?style=flat-square)
 ![Integrations](https://img.shields.io/badge/plugin_integrations-11-d29922?style=flat-square)
-![Skills](https://img.shields.io/badge/skills-34-0a7ea4?style=flat-square)
+![Skills](https://img.shields.io/badge/skills-35-0a7ea4?style=flat-square)
 ![Languages](https://img.shields.io/badge/languages-12-cf222e?style=flat-square)
 
-[✨ Highlights](#-highlights) · [🎬 Demo](#-a-conversation) · [🚀 Quick start](#-quick-start) · [🤖 Models](#-supported-models) · [🧩 Features](#-features) · [🔌 Plugins](#-plugin-ecosystem) · [📚 Wiki](docs/wiki/en/Home.md)
+[✨ Highlights](#-highlights) · [🎬 Demo](#-a-conversation) · [🚀 Quick start](#-quick-start) · [🤖 Models](#-supported-models) · [🧩 Features](#-features) · [🔌 Plugins](#-plugin-ecosystem) · [📚 Wiki](docs/wiki/en/Home.md) · [📝 Changelog](CHANGELOG.en.md)
 
 </div>
 
@@ -41,7 +41,7 @@ Players have no commands at all. Start a chat message with `panda`, talk like yo
 <td width="33%" valign="top">
 
 ### 🧠 A real agent
-A multi-step, parallel tool-calling loop with 60 tools and 34 on-demand skills. It decides whether to look, search or ask first.
+A multi-step, parallel tool-calling loop with 64 tools and 35 on-demand skills. It decides whether to look, search or ask first.
 
 </td>
 <td width="33%" valign="top">
@@ -159,6 +159,7 @@ Models without image input work too: with `vision` off, vision results reach the
 
 | | Feature | Try saying |
 |:---:|---|---|
+| 🧠 | **Game memory & distillation** | "why did I die last time?" · "remember this lesson" · "organize my memories" |
 | 📍 | **Place memory & guidance** | "remember this as home" · "take me home" |
 | 👁️ | **Vision & object pointing** | "what's in front of me?" · "how do I use that furnace on the left?" |
 | ⚒️ | **Goals & real recipes** | "I want an iron pickaxe" · "what can I craft now?" |
@@ -189,8 +190,8 @@ Jobs, Quests, shops, auction houses and more are covered through PlaceholderAPI 
 ```mermaid
 flowchart LR
     P["🎮 Player talks"] --> A["🧠 Agent<br/>system prompt + skill catalog"]
-    A -->|load_skill| S["📜 34 skills"]
-    A -->|tool calls| T["🛠️ 60 tools<br/>on the main thread"]
+    A -->|load_skill| S["📜 35 skills"]
+    A -->|tool calls| T["🛠️ 64 tools<br/>on the main thread"]
     T --> W["🌍 World · inventory · memory"]
     T --> I["🔌 Plugin APIs"]
     T --> V["👁️ Vision"]
@@ -226,6 +227,7 @@ flowchart LR
 
 **How it works**
 - 🧠 [Agent & Tools](docs/wiki/en/Agent-and-Tools.md)
+- 🧠 [Game Memory & Distillation](docs/wiki/en/Game-Memory.md)
 - 📜 [Skills & Prompts](docs/wiki/en/Skills-and-Prompts.md)
 - 🔔 [Proactive Assistant](docs/wiki/en/Proactive-Assistant.md)
 - 👁️ [Vision & Perception](docs/wiki/en/Vision-and-Perception.md)

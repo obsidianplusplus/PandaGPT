@@ -20,6 +20,11 @@ panda:
   max_prompt_chars: 2000
   context_char_budget: 16000 # 字符预算，不是精确的 token 数。
   max_output_tokens: 1000
+  memory:
+    enabled: true # 游戏记忆与按需召回；独立于视觉/感知开关，地点、笔记、目标也会接入检索。
+    distillation: true # 事件/事实/计划/经验四条独立提取流程；保留原始证据，不调用额外模型。
+    recall_limit: 6 # 一次最多返回的相关记忆，1–12；无匹配时明确返回未知。
+    context_chars: 1800 # 每次提问附带的相关记忆字符预算，256–4000；完整证据由工具按需读取。
   perception:
     enabled: true
     observe_seconds: 30 # 低分辨率 32x18 几何观察；与手动视觉共享同一份 tick 预算。

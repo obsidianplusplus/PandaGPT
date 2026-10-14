@@ -15,6 +15,7 @@
 | The player's question and recent rounds | Every turn |
 | Compact snapshot: name, health, hunger, game mode, dimension, position, facing, held item | Every turn |
 | Places, goals and notes summary | Every turn (up to 12 places in the current world by default) |
+| Relevant game evidence, source, world and time | Up to 3 attached to each question; additional records retrieved on demand |
 | Inventory, nearby mobs, recipes, doc excerpts, plugin data | When the agent calls the matching tool |
 | Vision reconstruction image | When the agent calls `look` and `vision: true` |
 
@@ -51,11 +52,13 @@ Data goes **only to the model provider the server owner configured**. Tell your 
 - `panda.logging.conversations: true` enables logging of raw questions and answers;
 - Logs are UTF-8 and rotate by size.
 
+Deaths and advancements are saved as game memories. Explicitly saved player messages retain exact quotes; assistant replies do not automatically become long-term evidence. Disable `panda.memory.enabled` to stop game recording and recall while keeping existing data. Players can request deletion through chat.
+
 ## Local files
 
 | Path | Content |
 |---|---|
-| `memory/<UUID>.json` | Places, goals, notes (atomic writes; corrupt files are not overwritten) |
+| `memory/<UUID>.json` | Places, goals, notes, game events, facts, plans, lessons and distilled indexes (v2; atomic writes; corrupt files preserved) |
 | `captures/<UUID>/` | Latest vision capture (disable with `save_images: false`) |
 | `logs/` | Event logs |
 

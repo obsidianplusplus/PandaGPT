@@ -77,6 +77,17 @@ panda:
 | `panda.requests.max_response_bytes` | 1048576 | 1 KiB–4 MiB | 响应体上限 |
 | `panda.requests.retries` | 1 | 0–3 | 仅对 429/502/503/504 与连接失败重试 |
 
+## 游戏记忆与记忆蒸馏
+
+| 键 | 默认 | 说明 |
+|---|---|---|
+| `panda.memory.enabled` | `true` | 游戏记忆、原始证据记录与按需召回；独立于视觉/感知开关 |
+| `panda.memory.distillation` | `true` | 四条独立提取式蒸馏流程，无额外模型调用 |
+| `panda.memory.recall_limit` | 6 | 一次最多返回 1–12 条相关记忆 |
+| `panda.memory.context_chars` | 1800 | 每次提问附带相关记忆的字符预算，256–4000 |
+
+详见[游戏记忆与记忆蒸馏](Game-Memory.md)。
+
 ## 感知
 
 | 键 | 默认 | 说明 |

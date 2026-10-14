@@ -30,7 +30,7 @@ plugins/PandaGPT/
 ├── config.yml          # 主配置
 ├── knowledge.md        # 服务器资料（规则、玩法、插件说明）
 ├── lang/*.yml          # 12 种语言文件，可直接修改
-├── skills/*.md         # 34 个技能，可修改、新增或关闭
+├── skills/*.md         # 35 个技能，可修改、新增或关闭
 ├── prompts/*.md        # 系统提示词模板
 ├── assets/             # 自动下载的官方纹理（vanilla-26.3.zip）
 ├── memory/<UUID>.json  # 每位玩家的地点、目标与笔记

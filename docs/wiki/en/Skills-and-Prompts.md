@@ -60,10 +60,10 @@ Limits: up to 64 skills, 16 KiB per file.
 | Enable only with a plugin | Add `requires: <integration id or plugin name>` |
 | Disable skills | `panda.agent.disabled_skills: [commands, vision]`; their tools disappear too |
 
-### Built-in skills (34)
+### Built-in skills (35)
 
 <details open>
-<summary><b>🧩 Core and general (15, with tools)</b></summary>
+<summary><b>🧩 Core and general (16, with tools)</b></summary>
 
 | Skill | Purpose | Tools |
 |---|---|---|
@@ -77,6 +77,7 @@ Limits: up to 64 skills, 16 KiB per file.
 | `building` | Ghost-block building preview and material check | preview_structure, clear_preview |
 | `reminders` | Real-time and game-event reminders | set_reminder and 2 more |
 | `journal` | Death recall, statistics, advancement progress | last_death and 2 more |
+| `game-memory` | Evidence-backed game recall and independent distillation | remember_game_memory and 3 more |
 | `notes` | To-dos, preferences, memos | add_note and 2 more |
 | `items` | Durability, enchantments, repair cost | inspect_item |
 | `trading` | Villager and wandering-trader trades | villager_trades |

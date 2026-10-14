@@ -77,6 +77,17 @@ All 15 providers are listed in [Model Providers](Model-Providers.md). Keys can a
 | `panda.requests.max_response_bytes` | 1048576 | 1 KiB–4 MiB | Response body cap |
 | `panda.requests.retries` | 1 | 0–3 | Retries only for 429/502/503/504 and connection failures |
 
+## Game memory and distillation
+
+| Key | Default | Meaning |
+|---|---|---|
+| `panda.memory.enabled` | `true` | Game evidence and on-demand recall, independent of vision/perception |
+| `panda.memory.distillation` | `true` | Four independent extractive pipelines without extra model calls |
+| `panda.memory.recall_limit` | 6 | At most 1–12 relevant results per retrieval |
+| `panda.memory.context_chars` | 1800 | Relevant-memory context budget, 256–4000 characters |
+
+See [Game Memory & Distillation](Game-Memory.md).
+
 ## Perception
 
 | Key | Default | Meaning |

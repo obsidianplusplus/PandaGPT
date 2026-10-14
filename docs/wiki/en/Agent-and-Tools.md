@@ -58,7 +58,7 @@ panda:
     max_tool_result_chars: 6000 # truncation length for one tool result
 ```
 
-## 🛠️ All tools (60)
+## 🛠️ All tools (64)
 
 Tools are grouped by skill. **A tool is offered to the model only if an enabled skill lists it under `tools`**; plugin tools appear only when the plugin is installed.
 
@@ -100,6 +100,17 @@ Tools are grouped by skill. **A tool is offered to the model only if an enabled 
 | `recall_surroundings` | Latest background observation |
 | `nearby_entities` | Nearby mobs, hostile first |
 | `world_conditions` | Time, weather, light, biome, difficulty |
+
+### Game memory and distillation
+
+| Tool | Purpose |
+|---|---|
+| `remember_game_memory` | Persist experiences, facts, plans or lessons quoting the current player message |
+| `recall_game_memory` | Retrieve relevant evidence with source, world, time and validity |
+| `distill_memory` | Independent evidence-preserving pipelines for events, facts, plans and lessons |
+| `forget_game_memory` | Delete evidence, linked sources and superseded versions |
+
+See [Game Memory & Distillation](Game-Memory.md).
 
 ### Creative features
 

@@ -12,7 +12,7 @@
 
 **零命令的 Minecraft AI Agent：能看、能记、会查、会提醒，玩家只需要说话。**
 
-Paper 26.3 · Java 25 · 15 家模型服务商 · 11 个插件集成 · 34 个技能 · 12 种语言
+Paper 26.3 · Java 25 · 15 家模型服务商 · 11 个插件集成 · 35 个技能 · 12 种语言
 
 </div>
 
@@ -37,7 +37,8 @@ Paper 26.3 · Java 25 · 15 家模型服务商 · 11 个插件集成 · 34 个�
 - 💬 [和 Panda 对话](Talking-to-Panda.md)：零命令的交互方式与大量对话示例
 
 ### 核心机制
-- 🧠 [Agent 与工具](Agent-and-Tools.md)：多步工具调用循环与 60 个工具一览
+- 🧠 [Agent 与工具](Agent-and-Tools.md)：多步工具调用循环与 64 个工具一览
+- 🧠 [游戏记忆与记忆蒸馏](Game-Memory.md)：玩家需要时找回正确的事件、事实、计划与经验
 - 📜 [技能与提示词](Skills-and-Prompts.md)：渐进式披露的技能系统，以及如何编写自己的技能
 - 🔔 [主动式助手](Proactive-Assistant.md)：Panda 什么时候会主动开口，又为什么常常保持安静
 - 👁️ [视觉与感知](Vision-and-Perception.md)：射线重建第一人称画面、对象编号、空间与实体观察、地点记忆
@@ -48,6 +49,8 @@ Paper 26.3 · Java 25 · 15 家模型服务商 · 11 个插件集成 · 34 个�
 - ⚡ [命令提案](Command-Proposals.md)：Agent 如何在玩家确认后代为执行命令
 
 ### 运维
+
+- 📝 [更新日志](../../../CHANGELOG.md)：功能、配置变化与升级事项
 - ⚙️ [配置参考](Configuration.md)：`config.yml` 每一项的含义
 - 🌍 [多语言](Languages.md)：12 种内置语言与自定义翻译
 - 🔑 [权限与管理命令](Permissions-and-Admin.md)
@@ -62,7 +65,7 @@ Paper 26.3 · Java 25 · 15 家模型服务商 · 11 个插件集成 · 34 个�
 flowchart LR
     P["🎮 玩家<br/>panda 帮我看看这是什么"] --> A["🧠 Agent<br/>系统提示 + 技能目录"]
     A -->|load_skill| S["📜 技能"]
-    A -->|调用工具| T["🛠️ 60 个工具<br/>主线程执行"]
+    A -->|调用工具| T["🛠️ 64 个工具<br/>主线程执行"]
     T --> W["🌍 世界 / 背包 / 记忆"]
     T --> I["🔌 外部插件 API"]
     T --> V["👁️ 视觉重建"]

@@ -23,6 +23,7 @@ public final class AgentTurn {
 
     private final UUID player;
     private final Kind kind;
+    private final String playerEvidence;
     private final List<ProposedCommand> proposals = new ArrayList<>();
     private final Set<String> toolsUsed = new LinkedHashSet<>();
     private boolean forgetConversation;
@@ -30,8 +31,17 @@ public final class AgentTurn {
     private boolean pendingAnswered;
 
     public AgentTurn(UUID player, Kind kind) {
+        this(player, kind, "");
+    }
+
+    public AgentTurn(UUID player, Kind kind, String playerEvidence) {
         this.player = player;
         this.kind = kind;
+        this.playerEvidence = playerEvidence;
+    }
+
+    public String playerEvidence() {
+        return playerEvidence;
     }
 
     public UUID player() {

@@ -82,6 +82,7 @@ public final class AssistantService implements AutoCloseable {
             "inspect_item",
             "villager_trades",
             "list_notes",
+            "recall_game_memory",
             "list_reminders",
             "economy_balance",
             "regions_here",
@@ -215,7 +216,14 @@ public final class AssistantService implements AutoCloseable {
         String system;
         Map<String, AgentTool> available;
         try {
-            system = prompts.render("system", variables(player, language));
+            Map<String, String> context = variables(player, language);
+            if (plugin.memory() != null && plugin.memory().settings().enabled()) {
+                context.merge(
+                        "memory",
+                        "\n" + plugin.memory().gameContext(id, player.getWorld().getUID(), question, now),
+                        String::concat);
+            }
+            system = prompts.render("system", context);
             available = toolsFor(player, AgentTurn.Kind.CONVERSATION);
         } catch (RuntimeException e) {
             logger.event(id, "context_error type=" + e.getClass().getSimpleName());
@@ -227,7 +235,7 @@ public final class AssistantService implements AutoCloseable {
             tell(player, "service.context_budget");
             return;
         }
-        AgentTurn turn = new AgentTurn(id, AgentTurn.Kind.CONVERSATION);
+        AgentTurn turn = new AgentTurn(id, AgentTurn.Kind.CONVERSATION, question);
         UUID requestId = UUID.randomUUID();
         session.requestId = requestId;
         BooleanSupplier cancelled = () -> closed || session.requestId != requestId;

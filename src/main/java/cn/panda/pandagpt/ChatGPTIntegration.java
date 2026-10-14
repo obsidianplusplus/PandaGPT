@@ -9,6 +9,7 @@ import cn.panda.pandagpt.agent.tools.CommandTools;
 import cn.panda.pandagpt.agent.tools.GoalTools;
 import cn.panda.pandagpt.agent.tools.InspectTools;
 import cn.panda.pandagpt.agent.tools.JournalTools;
+import cn.panda.pandagpt.agent.tools.MemoryTools;
 import cn.panda.pandagpt.agent.tools.NavigationTools;
 import cn.panda.pandagpt.agent.tools.PlaceTools;
 import cn.panda.pandagpt.agent.tools.ReminderTools;
@@ -219,6 +220,7 @@ public final class ChatGPTIntegration extends JavaPlugin {
                 .register(NavigationTools.create(this))
                 .register(ReminderTools.create(this))
                 .register(JournalTools.create(this))
+                .register(MemoryTools.create(this))
                 .register(InspectTools.create(this));
         for (Integration integration : detected.active()) {
             registry.register(integration.tools(this));
@@ -253,6 +255,7 @@ public final class ChatGPTIntegration extends JavaPlugin {
         VisionController previousVision = vision;
         PerceptionController previousPerception = perception;
         memory.setLimit(next.perception().maxPlayers());
+        memory.configure(next.memory());
         Messages.install(messages);
         service = replacement;
         this.recipes = recipes;

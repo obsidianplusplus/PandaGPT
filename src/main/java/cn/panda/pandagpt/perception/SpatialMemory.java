@@ -1,6 +1,8 @@
 package cn.panda.pandagpt.perception;
 
 import cn.panda.pandagpt.i18n.Lang;
+import cn.panda.pandagpt.memory.GameMemory;
+import cn.panda.pandagpt.memory.MemorySettings;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -19,6 +21,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
@@ -54,10 +57,16 @@ public final class SpatialMemory implements AutoCloseable {
     public record Note(String text, String kind, long createdAt) {}
 
     /** 一名玩家的完整记忆数据；mode 为 assist 或 quiet。旧文件没有 notes 字段时视为空列表。 */
-    public record Data(List<Landmark> landmarks, String mode, String goal, int quantity, List<Note> notes) {
+    public record Data(
+            List<Landmark> landmarks, String mode, String goal, int quantity, List<Note> notes, GameMemory.State game) {
         public Data {
             landmarks = List.copyOf(landmarks);
             notes = notes == null ? List.of() : List.copyOf(notes);
+            game = game == null ? GameMemory.State.empty() : game;
+        }
+
+        public Data(List<Landmark> landmarks, String mode, String goal, int quantity, List<Note> notes) {
+            this(landmarks, mode, goal, quantity, notes, GameMemory.State.empty());
         }
 
         public Data(List<Landmark> landmarks, String mode, String goal, int quantity) {
@@ -65,15 +74,19 @@ public final class SpatialMemory implements AutoCloseable {
         }
 
         public Data withLandmarks(List<Landmark> next) {
-            return new Data(next, mode, goal, quantity, notes);
+            return new Data(next, mode, goal, quantity, notes, game);
         }
 
         public Data withPreferences(String nextMode, String nextGoal, int nextQuantity) {
-            return new Data(landmarks, nextMode, nextGoal, nextQuantity, notes);
+            return new Data(landmarks, nextMode, nextGoal, nextQuantity, notes, game);
         }
 
         public Data withNotes(List<Note> next) {
-            return new Data(landmarks, mode, goal, quantity, next);
+            return new Data(landmarks, mode, goal, quantity, next, game);
+        }
+
+        public Data withGame(GameMemory.State next) {
+            return new Data(landmarks, mode, goal, quantity, notes, next);
         }
 
         private static final Data EMPTY = new Data(List.of(), "assist", "", 1, List.of());
@@ -121,6 +134,7 @@ public final class SpatialMemory implements AutoCloseable {
 
     private final Path folder;
     private volatile int limit;
+    private volatile MemorySettings settings = MemorySettings.defaults();
     private final Consumer<String> errors;
     private final Map<UUID, Data> cache = new ConcurrentHashMap<>();
     private final Set<UUID> requested = ConcurrentHashMap.newKeySet();
@@ -172,6 +186,146 @@ public final class SpatialMemory implements AutoCloseable {
         this.limit = limit;
     }
 
+    public void configure(MemorySettings next) {
+        settings = next;
+    }
+
+    public MemorySettings settings() {
+        return settings;
+    }
+
+    /** 工具必须等待实际落盘后才报告成功；首次加载、失败和队列满均有明确结果。 */
+    private <T> CompletableFuture<T> gameTask(UUID player, java.util.function.Function<Data, T> task) {
+        CompletableFuture<T> result = new CompletableFuture<>();
+        if (!settings.enabled()
+                || !request(player)
+                || !submit(() -> {
+                    try {
+                        if (!ready(player)) {
+                            throw new IOException("Memory unavailable");
+                        }
+                        result.complete(task.apply(mask(player, cache.get(player))));
+                    } catch (Exception e) {
+                        result.completeExceptionally(e);
+                    }
+                })) {
+            result.completeExceptionally(new IOException("Memory queue unavailable or disabled"));
+        }
+        return result;
+    }
+
+    public CompletableFuture<UUID> rememberGame(UUID player, GameMemory.Event event) {
+        if (!GameMemory.valid(event)
+                || (event.source() != GameMemory.Source.PLAYER && event.source() != GameMemory.Source.SERVER)) {
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Invalid memory"));
+        }
+        return gameTask(player, data -> {
+            saveGame(player, data.withGame(GameMemory.append(data.game(), event)));
+            return event.id();
+        });
+    }
+
+    private void saveGame(UUID player, Data data) {
+        try {
+            Data next = data.withGame(GameMemory.synchronize(data, settings.distillation()));
+            write(player, next);
+            cache.put(player, mask(player, next));
+            index(player, next);
+        } catch (IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
+    }
+
+    public CompletableFuture<GameMemory.Recall> recallGame(
+            UUID player, UUID world, String query, GameMemory.Kind kind, boolean allWorlds, boolean history, long now) {
+        return gameTask(
+                player,
+                data -> GameMemory.recall(
+                        data.game(),
+                        query,
+                        world,
+                        kind,
+                        allWorlds,
+                        history,
+                        settings.distillation(),
+                        settings.recallLimit(),
+                        now));
+    }
+
+    public CompletableFuture<Boolean> forgetGame(UUID player, UUID id) {
+        return gameTask(player, data -> {
+            var event = data.game().events().stream()
+                    .filter(e -> e.id().equals(id))
+                    .findFirst()
+                    .orElse(null);
+            if (event == null) {
+                return false;
+            }
+            var removed = data.game().events().stream()
+                    .filter(e -> e.id().equals(id)
+                            || (event.kind() != GameMemory.Kind.EPISODE && GameMemory.sameTopic(event, e)))
+                    .toList();
+            if (removed.stream().anyMatch(e -> e.source() == GameMemory.Source.GOAL)) {
+                // 目标还存在于感知模块的运行状态，必须由 clear_goal 一并清除。
+                throw new IllegalArgumentException("Use clear_goal to forget the active crafting goal");
+            }
+            // 关联来源也必须删除，否则后续蒸馏会从笔记/地点重新生成它。
+            Data next = data.withLandmarks(data.landmarks().stream()
+                            .filter(l -> removed.stream()
+                                    .noneMatch(e -> e.source() == GameMemory.Source.PLACE
+                                            && l.world().equals(e.world())
+                                            && l.name().equals(e.topic())))
+                            .toList())
+                    .withNotes(data.notes().stream()
+                            .filter(n -> removed.stream()
+                                    .noneMatch(e -> e.source() == GameMemory.Source.NOTE
+                                            && n.createdAt() == e.occurredAt()
+                                            && n.text().equals(e.text())))
+                            .toList());
+            // 同一事实/计划/经验的旧版本一起删除，防止旧版本重新生效。
+            var retained = next.game().events().stream()
+                    .filter(e -> removed.stream().noneMatch(r -> r.id().equals(e.id())))
+                    .toList();
+            saveGame(player, next.withGame(GameMemory.distill(retained)));
+            return true;
+        });
+    }
+
+    public CompletableFuture<GameMemory.State> distillGame(UUID player) {
+        return gameTask(player, data -> {
+            if (!settings.distillation()) {
+                throw new IllegalStateException("Memory distillation is disabled");
+            }
+            saveGame(player, data);
+            return cache.get(player).game();
+        });
+    }
+
+    /** 精简上下文只附带与本次需求有关的证据，不把全部历史塞进每次对话。 */
+    public String gameContext(UUID player, UUID world, String query, long now) {
+        if (!settings.enabled()) {
+            return "";
+        }
+        Data data = view(player);
+        if (!ready(player)) {
+            return "Game memory loading; call recall_game_memory before claiming past facts.";
+        }
+        var recall = GameMemory.recall(data.game(), query, world, null, false, false, settings.distillation(), 3, now);
+        StringBuilder out = new StringBuilder(
+                "Relevant game memories (historical evidence; recheck live state; use recall_game_memory for details):");
+        for (var hit : recall.matches()) {
+            String line = "\n" + gson.toJson(hit);
+            if (out.length() + line.length() > settings.contextChars()) {
+                break;
+            }
+            out.append(line);
+        }
+        if (recall.matches().isEmpty()) {
+            out.append(" none matching this request; do not invent a memory.");
+        }
+        return out.toString();
+    }
+
     private synchronized boolean request(UUID player) {
         if (requested.contains(player)) {
             return true;
@@ -212,6 +366,7 @@ public final class SpatialMemory implements AutoCloseable {
                     return;
                 }
                 Data next = mask(player, update.apply(mask(player, cache.get(player))));
+                next = next.withGame(GameMemory.synchronize(next, settings.distillation()));
                 write(player, next);
                 cache.put(player, mask(player, next));
                 index(player, next);
@@ -407,7 +562,11 @@ public final class SpatialMemory implements AutoCloseable {
                         i, new Landmark(l.name(), l.world(), l.position(), l.state(), l.source(), l.observedAt(), 0));
             }
         }
-        return changed == null ? data : data.withLandmarks(changed);
+        if (changed == null) {
+            return data;
+        }
+        Data next = data.withLandmarks(changed);
+        return next.withGame(GameMemory.synchronize(next, settings.distillation()));
     }
 
     /** 玩家离线后释放缓存与索引；排在已提交写入之后执行。 */
@@ -498,12 +657,13 @@ public final class SpatialMemory implements AutoCloseable {
         if (!Files.exists(path)) {
             return Data.empty();
         }
-        if (Files.size(path) > 262144) {
+        if (Files.size(path) > 1048576) {
             throw new IOException("Oversized memory file");
         }
         JsonObject root = JsonParser.parseString(Files.readString(path, StandardCharsets.UTF_8))
                 .getAsJsonObject();
-        if (root.get("version").getAsInt() != 1) {
+        int version = root.get("version").getAsInt();
+        if (version != 1 && version != 2) {
             throw new IOException("Unsupported memory schema");
         }
         Data data = gson.fromJson(root.get("data"), Data.class);
@@ -516,7 +676,11 @@ public final class SpatialMemory implements AutoCloseable {
                 || data.quantity() > 64
                 || data.notes().size() > MAX_NOTES
                 || data.notes().stream()
-                        .anyMatch(n -> n.text() == null || n.text().length() > 200 || n.kind() == null)) {
+                        .anyMatch(n -> n.text() == null
+                                || n.text().isBlank()
+                                || n.text().length() > 200
+                                || n.kind() == null)
+                || !GameMemory.valid(data.game())) {
             throw new IOException("Invalid memory data");
         }
         for (Landmark l : data.landmarks()) {
@@ -531,7 +695,7 @@ public final class SpatialMemory implements AutoCloseable {
                 throw new IOException("Invalid landmark");
             }
         }
-        return data;
+        return data.withGame(GameMemory.synchronize(data, settings.distillation()));
     }
 
     // 先写临时文件再原子替换，崩溃时不会留下半个文件。
@@ -540,7 +704,7 @@ public final class SpatialMemory implements AutoCloseable {
         Path target = folder.resolve(player + ".json");
         Path temp = Files.createTempFile(folder, "memory-", ".tmp");
         JsonObject root = new JsonObject();
-        root.addProperty("version", 1);
+        root.addProperty("version", 2);
         root.add("data", gson.toJsonTree(data));
         try {
             Files.writeString(temp, gson.toJson(root), StandardCharsets.UTF_8);
