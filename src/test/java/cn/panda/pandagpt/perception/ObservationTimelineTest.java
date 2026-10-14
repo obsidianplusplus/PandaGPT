@@ -6,6 +6,20 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ObservationTimelineTest {
+    @Test void chunkIndexIsUpdatedOnReplacementEvictionRemovalAndWorldChanges() {
+        var timeline = new ObservationTimeline(1); UUID player = UUID.randomUUID(), next = UUID.randomUUID(), world = UUID.randomUUID();
+        var camera = PerceptionFixtures.camera(1, 1);
+        var old = PerceptionFixtures.scene(world, 1000, camera, List.of(PerceptionFixtures.hit(-17, 0, 4, "STONE")), List.of());
+        var current = PerceptionFixtures.scene(world, 2000, camera, List.of(PerceptionFixtures.hit(32, 0, 4, "STONE")), List.of());
+        timeline.accept(player, old); timeline.accept(player, current);
+        timeline.invalidate(world, new SceneObjects.Pos(-17, 0, 4)); assertSame(current, timeline.get(player, world, 2000, 1000));
+        timeline.accept(next, current); assertNull(timeline.get(player, world, 2000, 1000));
+        timeline.remove(next); timeline.invalidate(world, new SceneObjects.Pos(32, 0, 4));
+        timeline.accept(next, current); assertSame(current, timeline.get(next, world, 2000, 1000));
+        timeline.invalidate(UUID.randomUUID(), new SceneObjects.Pos(32, 0, 4)); assertSame(current, timeline.get(next, world, 2000, 1000));
+        timeline.invalidate(world, new SceneObjects.Pos(32, 0, 4)); assertNull(timeline.get(next, world, 2000, 1000));
+        timeline.clear(); timeline.accept(next, current); assertSame(current, timeline.get(next, world, 2000, 1000));
+    }
     @Test void gapShrinkIsComparedOnlyForTheSameKnownCameraProjection() {
         var timeline = new ObservationTimeline(2); UUID player = UUID.randomUUID(), world = UUID.randomUUID();
         var camera = PerceptionFixtures.camera(5, 5);

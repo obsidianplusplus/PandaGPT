@@ -11,6 +11,22 @@ class SpatialMemoryTest {
     private SpatialMemory.Landmark landmark(UUID world, String name) {
         return new SpatialMemory.Landmark(name, world, new SceneObjects.Pos(-1, 64, 5), "minecraft:crafting_table", "explicit_player_mark", 1000, 1000);
     }
+    @Test void blockEventStormDoesNotFillTheIoQueueOrInvalidateAnotherWorld() throws Exception {
+        UUID player = UUID.randomUUID(), world = UUID.randomUUID(); List<String> errors = new java.util.concurrent.CopyOnWriteArrayList<>();
+        try (var memory = new SpatialMemory(folder, 2, errors::add)) {
+            memory.remember(player, landmark(world, "table")); assertTrue(memory.drain(5000));
+            var entered = new java.util.concurrent.CountDownLatch(1); var release = new java.util.concurrent.CountDownLatch(1);
+            memory.edit(player, data -> { entered.countDown(); try { release.await(5, java.util.concurrent.TimeUnit.SECONDS); }
+                catch (InterruptedException e) { throw new AssertionError(e); } return data; });
+            assertTrue(entered.await(5, java.util.concurrent.TimeUnit.SECONDS));
+            memory.invalidate(UUID.randomUUID(), new SceneObjects.Pos(-1, 64, 5));
+            assertEquals(1000, memory.view(player).landmarks().getFirst().verifiedAt());
+            for (int i = 0; i < 10000; i++) memory.invalidate(world, new SceneObjects.Pos(-1, 64, 5));
+            assertEquals(0, memory.view(player).landmarks().getFirst().verifiedAt());
+            release.countDown(); assertTrue(memory.drain(5000)); assertTrue(errors.isEmpty(), errors.toString());
+            assertSame(memory.view(player), memory.view(player)); // Clean reads reuse the immutable snapshot.
+        }
+    }
     @Test void aNewQueuedLandmarkIsInvalidatedBeforeItsFirstDiskWrite() throws Exception {
         UUID player = UUID.randomUUID(), world = UUID.randomUUID();
         try (var memory = new SpatialMemory(folder, 4, s -> fail(s))) {

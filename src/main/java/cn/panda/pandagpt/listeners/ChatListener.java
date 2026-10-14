@@ -6,6 +6,7 @@ import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 
 public final class ChatListener implements Listener {
     private final ChatGPTIntegration plugin;
@@ -25,6 +26,7 @@ public final class ChatListener implements Listener {
             });
         } catch (org.bukkit.plugin.IllegalPluginAccessException ignored) { /* Server is stopping. */ }
     }
+    @EventHandler public void onJoin(PlayerJoinEvent event) { plugin.perception().joined(event.getPlayer()); }
     @EventHandler public void onQuit(PlayerQuitEvent event) {
         plugin.vision().cancel(event.getPlayer().getUniqueId());
         plugin.service().clear(event.getPlayer().getUniqueId());

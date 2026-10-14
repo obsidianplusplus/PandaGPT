@@ -4,16 +4,25 @@ import cn.panda.pandagpt.vision.*;
 import cn.panda.pandagpt.vision.Camera.Vec3;
 import org.bukkit.entity.*;
 import java.util.*;
+import java.util.function.BooleanSupplier;
+import org.bukkit.util.BoundingBox;
 
 /** Entities are server observations and sample-verified annotations, not rendered client entity models. */
 public record EntityObservation(UUID uuid, String type, String item, Vec3 center, SpatialSurvey.Box box,
                                 boolean targetingPlayer, String visibility, int left, int top, int right, int bottom,
                                 int visibleSamples, long observedAt) {
     public static List<EntityObservation> capture(Player player, PerceptionSettings settings, long time) {
+        return capture(player, settings, time, () -> true);
+    }
+    public static List<EntityObservation> capture(Player player, PerceptionSettings settings, long time, BooleanSupplier permit) {
+        if (!permit.getAsBoolean()) return List.of();
         var origin = player.getEyeLocation(); var world = player.getWorld(); Set<Long> sent = player.getSentChunkKeys();
-        List<EntityObservation> list = new ArrayList<>(); int scanned = 0;
-        for (Entity e : player.getNearbyEntities(settings.entityRadius(), settings.entityRadius(), settings.entityRadius())) {
-            if (++scanned > 256) break;
+        List<EntityObservation> list = new ArrayList<>(); int[] scanned = {0};
+        double radius = settings.entityRadius();
+        var box = BoundingBox.of(origin, radius, radius, radius);
+        // Bound copied results and subsequent metadata work. The underlying native spatial query is not preemptible.
+        for (Entity e : world.getNearbyEntities(box, candidate -> scanned[0]++ < 256 && permit.getAsBoolean())) {
+            if (!permit.getAsBoolean()) break;
             if (e == player || !e.isValid() || !player.canSee(e)) continue;
             var location = e.getLocation(); int x = location.getBlockX(), z = location.getBlockZ();
             if (!sent.contains(BlockRaycaster.chunkKey(x >> 4, z >> 4)) || !world.isChunkLoaded(x >> 4, z >> 4)) continue;

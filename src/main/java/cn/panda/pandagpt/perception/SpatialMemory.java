@@ -14,7 +14,8 @@ public final class SpatialMemory implements AutoCloseable {
                            long observedAt, long verifiedAt) {}
     public record Data(List<Landmark> landmarks, String mode, String goal, int quantity) {
         public Data { landmarks = List.copyOf(landmarks); }
-        public static Data empty() { return new Data(List.of(), "assist", "", 1); }
+        private static final Data EMPTY = new Data(List.of(), "assist", "", 1);
+        public static Data empty() { return EMPTY; }
     }
     private final Path folder; private volatile int limit; private final Consumer<String> errors;
     private final Map<UUID, Data> cache = new ConcurrentHashMap<>(); private final Set<UUID> requested = ConcurrentHashMap.newKeySet();
@@ -22,6 +23,12 @@ public final class SpatialMemory implements AutoCloseable {
     private record Key(UUID player, UUID world, SceneObjects.Pos position) {}
     private final Map<Key, Long> invalidations = new ConcurrentHashMap<>();
     private final Map<Key, Integer> pendingLandmarks = new ConcurrentHashMap<>();
+    private record Position(UUID world, SceneObjects.Pos pos) {}
+    private final Object indexLock = new Object();
+    private final Map<Position, Set<Key>> owners = new HashMap<>();
+    private final Map<UUID, Set<Key>> indexed = new HashMap<>();
+    private final Map<UUID, Long> dirty = new ConcurrentHashMap<>();
+    private final Set<UUID> scheduled = ConcurrentHashMap.newKeySet();
     private final ThreadPoolExecutor io; private final Gson gson = new Gson();
     public SpatialMemory(Path folder, int limit, Consumer<String> errors) {
         this.folder = folder; this.limit = limit; this.errors = errors;
@@ -36,7 +43,7 @@ public final class SpatialMemory implements AutoCloseable {
         if (requested.size() >= limit) return false;
         requested.add(player);
         if (!submit(() -> {
-            try { cache.put(player, read(player)); }
+            try { Data loaded = read(player); cache.put(player, loaded); index(player, loaded); }
             catch (Exception e) { failed.add(player); errors.accept("Memory load failed for " + player + ": " + e.getClass().getSimpleName()); }
         })) { requested.remove(player); return false; }
         return true;
@@ -50,7 +57,7 @@ public final class SpatialMemory implements AutoCloseable {
             try {
                 if (!ready(player)) return; // Never overwrite an unreadable or unparsed prior file.
                 Data next = mask(player, update.apply(mask(player, cache.get(player))));
-                write(player, next); cache.put(player, mask(player, next));
+                write(player, next); cache.put(player, mask(player, next)); index(player, next);
                 Set<Key> retained = new HashSet<>(); for (Landmark l : next.landmarks()) retained.add(new Key(player, l.world(), l.position()));
                 invalidations.keySet().removeIf(k -> k.player().equals(player) && !retained.contains(k) && !pendingLandmarks.containsKey(k));
             }
@@ -60,8 +67,12 @@ public final class SpatialMemory implements AutoCloseable {
     }
     public boolean remember(UUID player, Landmark landmark) {
         if (landmark.name().isBlank() || landmark.name().length() > 64) return false;
-        Key key = new Key(player, landmark.world(), landmark.position()); pendingLandmarks.merge(key, 1, Integer::sum);
-        Runnable done = () -> pendingLandmarks.computeIfPresent(key, (k, count) -> count <= 1 ? null : count - 1);
+        Key key = new Key(player, landmark.world(), landmark.position());
+        synchronized (indexLock) { pendingLandmarks.merge(key, 1, Integer::sum); addOwner(key); }
+        Runnable done = () -> { synchronized (indexLock) {
+            pendingLandmarks.computeIfPresent(key, (k, count) -> count <= 1 ? null : count - 1);
+            if (!pendingLandmarks.containsKey(key) && !indexed.getOrDefault(player, Set.of()).contains(key)) removeOwner(key);
+        } };
         boolean accepted = edit(player, data -> {
             var list = new ArrayList<>(data.landmarks()); list.removeIf(l -> l.name().equals(landmark.name()) && l.world().equals(landmark.world()));
             list.add(landmark);
@@ -73,25 +84,65 @@ public final class SpatialMemory implements AutoCloseable {
         }, done);
         if (!accepted) done.run(); return accepted;
     }
+    private void addOwner(Key key) { owners.computeIfAbsent(new Position(key.world(), key.position()), p -> new HashSet<>()).add(key); }
+    private void removeOwner(Key key) {
+        Position pos = new Position(key.world(), key.position()); Set<Key> keys = owners.get(pos);
+        if (keys != null) { keys.remove(key); if (keys.isEmpty()) owners.remove(pos); }
+    }
+    private void index(UUID player, Data data) {
+        synchronized (indexLock) {
+            Set<Key> next = new HashSet<>(); for (Landmark l : data.landmarks()) next.add(new Key(player, l.world(), l.position()));
+            for (Key key : indexed.getOrDefault(player, Set.of())) if (!next.contains(key) && !pendingLandmarks.containsKey(key)) removeOwner(key);
+            for (Key key : next) addOwner(key); indexed.put(player, next);
+        }
+    }
     public void invalidate(UUID world, SceneObjects.Pos position) {
-        // Only known landmarks are changed; do not record unseen events as observations.
-        pendingLandmarks.keySet().stream().filter(k -> k.world().equals(world) && k.position().equals(position))
-                .forEach(k -> invalidations.put(k, System.currentTimeMillis()));
-        cache.forEach((player, data) -> {
-            if (mask(player, data).landmarks().stream().noneMatch(l -> l.world().equals(world) && l.position().equals(position) && l.verifiedAt() > 0)) return;
-            invalidations.put(new Key(player, world, position), System.currentTimeMillis());
-            edit(player, current -> mask(player, current));
-        });
+        Set<UUID> affected = new HashSet<>(); long now = System.currentTimeMillis();
+        synchronized (indexLock) {
+            // O(owners at this coordinate), independent of all other players and landmarks.
+            for (Key key : owners.getOrDefault(new Position(world, position), Set.of())) {
+                long previous = invalidations.getOrDefault(key, Long.MIN_VALUE);
+                boolean fresh = cache.getOrDefault(key.player(), Data.empty()).landmarks().stream()
+                        .anyMatch(l -> l.world().equals(world) && l.position().equals(position) && l.verifiedAt() > 0 && l.verifiedAt() > previous);
+                if (!fresh && !pendingLandmarks.containsKey(key)) continue;
+                invalidations.put(key, now); affected.add(key.player()); dirty.merge(key.player(), 1L, Long::sum);
+            }
+        }
+        for (UUID player : affected) saveInvalidations(player);
+    }
+    private void saveInvalidations(UUID player) {
+        if (!scheduled.add(player)) return; // One outstanding invalidation write per player, even during redstone storms.
+        if (!submit(() -> {
+            long revision = dirty.getOrDefault(player, 0L);
+            try {
+                if (ready(player)) {
+                    Data next = mask(player, cache.get(player)); write(player, next); cache.put(player, mask(player, next));
+                }
+            } catch (Exception e) { errors.accept("Memory invalidation save failed: " + e.getClass().getSimpleName()); }
+            finally {
+                scheduled.remove(player);
+                if (dirty.getOrDefault(player, 0L) != revision) saveInvalidations(player);
+            }
+        })) scheduled.remove(player);
     }
     private Data mask(UUID player, Data data) {
-        return new Data(data.landmarks().stream().map(l -> {
+        List<Landmark> changed = null;
+        for (int i = 0; i < data.landmarks().size(); i++) {
+            Landmark l = data.landmarks().get(i);
             long invalidated = invalidations.getOrDefault(new Key(player, l.world(), l.position()), Long.MIN_VALUE);
-            return l.verifiedAt() > 0 && l.verifiedAt() <= invalidated
-                    ? new Landmark(l.name(), l.world(), l.position(), l.state(), l.source(), l.observedAt(), 0) : l;
-        }).toList(), data.mode(), data.goal(), data.quantity());
+            if (l.verifiedAt() > 0 && l.verifiedAt() <= invalidated) {
+                if (changed == null) changed = new ArrayList<>(data.landmarks());
+                changed.set(i, new Landmark(l.name(), l.world(), l.position(), l.state(), l.source(), l.observedAt(), 0));
+            }
+        }
+        return changed == null ? data : new Data(changed, data.mode(), data.goal(), data.quantity());
     }
     public void release(UUID player) {
-        submit(() -> { cache.remove(player); failed.remove(player); requested.remove(player); invalidations.keySet().removeIf(k -> k.player().equals(player)); pendingLandmarks.keySet().removeIf(k -> k.player().equals(player)); });
+        submit(() -> { synchronized (indexLock) {
+            for (Key key : indexed.getOrDefault(player, Set.of())) removeOwner(key);
+            for (Key key : pendingLandmarks.keySet()) if (key.player().equals(player)) removeOwner(key);
+            indexed.remove(player); dirty.remove(player);
+        } cache.remove(player); failed.remove(player); requested.remove(player); invalidations.keySet().removeIf(k -> k.player().equals(player)); pendingLandmarks.keySet().removeIf(k -> k.player().equals(player)); });
     }
     public String context(UUID player, UUID world, long now) {
         Data data = view(player);

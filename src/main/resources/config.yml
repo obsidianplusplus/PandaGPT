@@ -33,7 +33,8 @@ panda:
     vertical_fov: 70 # Configured vertical FOV; server cannot read the real client FOV.
     max_distance: 96 # Also clipped by reported/sending view distance and sent+loaded chunk membership.
     rays_per_tick: 256 # Global cap shared across captures.
-    time_budget_ms: 2 # Checked between rays; a single ray cannot be preempted.
+    cells_per_tick: 8192 # Global DDA/survey/mark cell cap; rays pause inside traversal when exhausted.
+    time_budget_ms: 2 # Shared scheduled loop deadline; checked before each cell. Native API calls are not preemptible.
     max_concurrent_captures: 2
     timeout_ticks: 200
     cooldown_seconds: 10

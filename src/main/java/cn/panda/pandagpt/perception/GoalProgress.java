@@ -20,6 +20,10 @@ public final class GoalProgress {
         return evaluate(target, quantity, stock, stock, entries);
     }
     public static Progress evaluate(String target, int quantity, ItemStack[] stock, ItemStack[] ownedItems, List<RecipeKnowledge.Entry> entries) {
+        return evaluate(target, quantity, stock, ownedItems, entries, () -> true);
+    }
+    public static Progress evaluate(String target, int quantity, ItemStack[] stock, ItemStack[] ownedItems,
+                                    List<RecipeKnowledge.Entry> entries, java.util.function.BooleanSupplier permit) {
         if (target.equals("mine")) {
             int torches = count(ownedItems, "TORCH"), food = 0, pickaxes = 0;
             for (ItemStack item : ownedItems) if (item != null) {
@@ -32,11 +36,11 @@ public final class GoalProgress {
         int owned = count(ownedItems, target);
         if (owned >= quantity) return new Progress(target + " " + owned + "/" + quantity, "已确认背包持有目标数量；不推断获得方式", 1, true, false, false);
         RecipeKnowledge.Entry best = null; boolean ready = false;
-        for (var entry : entries) if (entry.result().getType().name().equals(target)) {
+        for (var entry : entries) if (permit.getAsBoolean() && entry.result().getType().name().equals(target)) {
             int batches = (int) Math.ceil((quantity - owned) / (double) entry.result().getAmount());
             if (batches > 16) continue;
             List<RecipeChoice> required = new ArrayList<>(); for (int n = 0; n < batches; n++) required.addAll(entry.ingredients());
-            if (RecipeKnowledge.matches(required, stock)) { best = entry; ready = true; break; }
+            if (RecipeKnowledge.matches(required, stock, permit)) { best = entry; ready = true; break; }
             if (best == null) best = entry;
         }
         String detail = best == null ? "没有已索引的合成台配方；需其他获取方式" : ready

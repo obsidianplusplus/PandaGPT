@@ -16,13 +16,27 @@ public record Camera(Vec3 origin, double yaw, double pitch, int width, int heigh
     }
     public Vec3 ray(int x, int y) {
         if (x < 0 || x >= width || y < 0 || y >= height) throw new IllegalArgumentException("Pixel outside image");
-        double yr = Math.toRadians(yaw), pr = Math.toRadians(pitch);
-        Vec3 right = new Vec3(-Math.cos(yr), 0, -Math.sin(yr));
-        Vec3 up = new Vec3(-Math.sin(yr) * Math.sin(pr), Math.cos(pr), Math.cos(yr) * Math.sin(pr));
-        double halfY = Math.tan(Math.toRadians(verticalFov) / 2);
-        double sx = (2 * (x + .5) / width - 1) * halfY * width / height;
-        double sy = (1 - 2 * (y + .5) / height) * halfY;
-        return forward().add(right.scale(sx)).add(up.scale(sy)).normalize();
+        return projection().ray(x, y);
+    }
+    /** Prepared once per capture, avoiding trigonometry and intermediate vectors per pixel. */
+    public Projection projection() { return new Projection(this); }
+    public static final class Projection {
+        private final Vec3 forward, right, up;
+        private final int width, height;
+        private final double halfY;
+        private Projection(Camera camera) {
+            double yr = Math.toRadians(camera.yaw()), pr = Math.toRadians(camera.pitch());
+            forward = camera.forward(); right = new Vec3(-Math.cos(yr), 0, -Math.sin(yr));
+            up = new Vec3(-Math.sin(yr) * Math.sin(pr), Math.cos(pr), Math.cos(yr) * Math.sin(pr));
+            width = camera.width(); height = camera.height(); halfY = Math.tan(Math.toRadians(camera.verticalFov()) / 2);
+        }
+        public Vec3 ray(int x, int y) {
+            if (x < 0 || x >= width || y < 0 || y >= height) throw new IllegalArgumentException("Pixel outside image");
+            double sx = (2 * (x + .5) / width - 1) * halfY * width / height;
+            double sy = (1 - 2 * (y + .5) / height) * halfY;
+            return new Vec3(forward.x() + right.x() * sx + up.x() * sy,
+                    forward.y() + up.y() * sy, forward.z() + right.z() * sx + up.z() * sy).normalize();
+        }
     }
     /** Pixel coordinates in this configured projection; points behind the camera have no projection. */
     public double[] project(Vec3 point) {

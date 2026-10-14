@@ -38,16 +38,22 @@ public final class PlayerContext {
         String lower = question.toLowerCase(Locale.ROOT);
         if (lower.matches("(?s).*(附近|周围|危险|怪物|生存|nearby|danger|mob|surviv).*")) {
             double radiusSquared = settings.radius() * settings.radius();
-            context.put("nearby_entities", player.getNearbyEntities(settings.radius(), settings.radius(), settings.radius()).stream()
-                    .filter(entity -> entity instanceof LivingEntity && !(entity instanceof Player))
-                    .filter(entity -> entity.getLocation().distanceSquared(location) <= radiusSquared)
-                    .sorted(Comparator.comparingInt((org.bukkit.entity.Entity entity) -> entity instanceof Monster ? 0 : 1)
-                            .thenComparingDouble(entity -> entity.getLocation().distanceSquared(location)))
-                    .limit(settings.maxEntities()).map(entity -> Map.of("type", entity.getType().name(),
-                            "distance", Math.round(entity.getLocation().distance(location) * 10) / 10.0,
-                            "position", List.of(entity.getLocation().getBlockX(), entity.getLocation().getBlockY(), entity.getLocation().getBlockZ())))
-                    .toList());
-            context.put("nearby_entities_note", "Sorted by monster category then distance; category is not proof of aggression.");
+            long deadline = System.nanoTime() + 1000000; int[] scanned = {0};
+            record Nearby(boolean monster, double distance, Map<String, Object> data) {}
+            List<Nearby> nearby = new ArrayList<>();
+            for (var entity : player.getWorld().getNearbyEntities(org.bukkit.util.BoundingBox.of(location,
+                    settings.radius(), settings.radius(), settings.radius()),
+                    entity -> scanned[0]++ < 128 && System.nanoTime() < deadline && entity instanceof LivingEntity && !(entity instanceof Player))) {
+                if (System.nanoTime() >= deadline) break;
+                var at = entity.getLocation(); double distance = at.distanceSquared(location);
+                if (distance > radiusSquared || !player.canSee(entity)) continue;
+                nearby.add(new Nearby(entity instanceof Monster, distance, Map.of("type", entity.getType().name(),
+                        "distance", Math.round(Math.sqrt(distance) * 10) / 10.0,
+                        "position", List.of(at.getBlockX(), at.getBlockY(), at.getBlockZ()))));
+            }
+            nearby.sort(Comparator.comparingInt((Nearby e) -> e.monster() ? 0 : 1).thenComparingDouble(Nearby::distance));
+            context.put("nearby_entities", nearby.stream().limit(settings.maxEntities()).map(Nearby::data).toList());
+            context.put("nearby_entities_note", "Bounded sample, may be incomplete under load; sorted by monster category then distance. Category is not proof of aggression; empty does not prove absence.");
         }
         if (lower.matches("(?s).*(合成|配方|材料|craft|recipe).*")) {
             context.put("ingredient_matching_recipes", recipes.matching(storage, settings.maxRecipes()));

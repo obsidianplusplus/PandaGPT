@@ -38,6 +38,19 @@ class VisionControllerTest {
             verify(f.world, never()).getBlockAt(anyInt(), anyInt(), anyInt());
         }
     }
+    @Test void exhaustedBudgetSkipsWorldReadsAndPressurePausesAmbientWork() {
+        Fixture f = fixture(); when(f.player.getLocation()).thenReturn(new Location(f.world, .5, 64, .5));
+        try (var vision = new VisionController(f.plugin, f.settings.vision(), mock(AssistantService.class), folder)) {
+            vision.attach(mock(cn.panda.pandagpt.perception.PerceptionController.class), f.settings.perception());
+            assertTrue(vision.observe(f.player));
+            vision.tick(new cn.panda.pandagpt.performance.TickBudget(0, 8192, true));
+            verify(f.world, never()).isChunkLoaded(anyInt(), anyInt());
+            when(f.plugin.getServer().getAverageTickTime()).thenReturn(48.0);
+            for (int i = 0; i < 40; i++) vision.tick();
+            verify(f.world, never()).isChunkLoaded(anyInt(), anyInt());
+            assertTrue(vision.status().contains("pressure=true"));
+        }
+    }
     @TempDir Path folder;
     private record Fixture(ChatGPTIntegration plugin, Player player, World world, Settings settings) {}
     private Fixture fixture() {

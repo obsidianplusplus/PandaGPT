@@ -8,6 +8,9 @@ public final class ObservationTimeline {
     private final Map<UUID, Observation> latest = new LinkedHashMap<>();
     private final Map<UUID, Changes> changes = new HashMap<>();
     private final Set<UUID> invalidated = new HashSet<>();
+    private record Chunk(UUID world, int x, int z) {}
+    private final Map<Chunk, Set<UUID>> owners = new HashMap<>();
+    private final Map<UUID, Set<Chunk>> indexed = new HashMap<>();
     private final int maxPlayers;
     public ObservationTimeline(int maxPlayers) { this.maxPlayers = maxPlayers; }
     public Changes accept(UUID player, Observation now) {
@@ -39,6 +42,11 @@ public final class ObservationTimeline {
             }
         }
         if (!latest.containsKey(player) && latest.size() >= maxPlayers) remove(latest.keySet().iterator().next());
+        unindex(player);
+        Set<Chunk> chunks = new HashSet<>();
+        for (var pos : now.observedBlocks().keySet()) chunks.add(new Chunk(now.world(), pos.x() >> 4, pos.z() >> 4));
+        for (Chunk chunk : chunks) owners.computeIfAbsent(chunk, k -> new HashSet<>()).add(player);
+        indexed.put(player, chunks);
         latest.put(player, now); invalidated.remove(player);
         Changes result = new Changes(blocks, events); changes.put(player, result); return result;
     }
@@ -48,8 +56,15 @@ public final class ObservationTimeline {
     }
     public String context(UUID player) { Changes c = changes.get(player); return c == null ? "" : "Recent observation differences: " + c; }
     public void invalidate(UUID world, SceneObjects.Pos pos) {
-        latest.forEach((id, o) -> { if (o.world().equals(world) && o.observedBlocks().containsKey(pos)) invalidated.add(id); });
+        for (UUID id : owners.getOrDefault(new Chunk(world, pos.x() >> 4, pos.z() >> 4), Set.of()))
+            if (latest.get(id).observedBlocks().containsKey(pos)) invalidated.add(id);
     }
-    public void remove(UUID player) { latest.remove(player); changes.remove(player); invalidated.remove(player); }
-    public void clear() { latest.clear(); changes.clear(); invalidated.clear(); }
+    private void unindex(UUID player) {
+        for (Chunk chunk : indexed.getOrDefault(player, Set.of())) {
+            Set<UUID> ids = owners.get(chunk); ids.remove(player); if (ids.isEmpty()) owners.remove(chunk);
+        }
+        indexed.remove(player);
+    }
+    public void remove(UUID player) { unindex(player); latest.remove(player); changes.remove(player); invalidated.remove(player); }
+    public void clear() { latest.clear(); changes.clear(); invalidated.clear(); owners.clear(); indexed.clear(); }
 }

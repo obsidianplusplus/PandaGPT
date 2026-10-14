@@ -5,6 +5,13 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class VisionSettingsTest {
+    @org.junit.jupiter.api.Test void validatesCellBudget() {
+        var config = cn.panda.pandagpt.TestSupport.config();
+        config.set("panda.vision.cells_per_tick", 64); assertEquals(64, VisionSettings.load(config).cellsPerTick());
+        for (Object invalid : java.util.List.of(0, 63, 32769, 64.5, "8192")) {
+            config.set("panda.vision.cells_per_tick", invalid); assertThrows(IllegalArgumentException.class, () -> VisionSettings.load(config));
+        }
+    }
     @Test void samplingAndImageSizeAreBounded() {
         var settings = VisionSettings.load(TestSupport.config());
         assertEquals(160, settings.width()); assertEquals(90, settings.height());

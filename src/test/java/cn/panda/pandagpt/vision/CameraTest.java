@@ -4,6 +4,17 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class CameraTest {
+    @Test void preparedProjectionRoundTripsForPitchYawAndAspect() {
+        for (double yaw : new double[]{-135, 0, 90}) for (double pitch : new double[]{-80, 15, 80}) {
+            var camera = new Camera(new Camera.Vec3(-4, 65, 10), yaw, pitch, 160, 90, 70);
+            var prepared = camera.projection();
+            for (int x : new int[]{0, 80, 159}) for (int y : new int[]{0, 45, 89}) {
+                var ray = prepared.ray(x, y); assertEquals(1, ray.length(), 1e-12);
+                var pixel = camera.project(camera.origin().add(ray.scale(10)));
+                assertEquals(x + .5, pixel[0], 1e-8); assertEquals(y + .5, pixel[1], 1e-8);
+            }
+        }
+    }
     @Test void centerMatchesMinecraftYawAndPitchWithoutMirroring() {
         for (double yaw : new double[]{0, 90, 180, 270}) {
             Camera camera = new Camera(new Camera.Vec3(0, 0, 0), yaw, 0, 3, 3, 70);

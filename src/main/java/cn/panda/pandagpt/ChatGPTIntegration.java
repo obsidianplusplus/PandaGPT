@@ -43,7 +43,7 @@ public final class ChatGPTIntegration extends JavaPlugin {
             getServer().getPluginManager().registerEvents(new ChatListener(this), this);
             getServer().getPluginManager().registerEvents(new PerceptionListener(this), this);
             cleanup = getServer().getScheduler().runTaskTimer(this, () -> service.expire(), 1200, 1200);
-            visionTick = getServer().getScheduler().runTaskTimer(this, () -> { vision.tick(); perception.tick(); }, 1, 1);
+            visionTick = getServer().getScheduler().runTaskTimer(this, () -> { var budget = vision.newBudget(); vision.tick(budget); perception.tick(budget); vision.finishTick(budget); }, 1, 1);
             getLogger().info("PandaGPT enabled: Paper 26.3 / Java 25; " + service.status());
             if (settings.apiKey().isBlank()) getLogger().warning("Selected AI provider has no API key; questions will be rejected until configured.");
         } catch (Exception e) {
@@ -130,9 +130,10 @@ public final class ChatGPTIntegration extends JavaPlugin {
     public VisionController vision() { return vision; }
     public PerceptionController perception() { return perception; }
     public SpatialMemory memory() { return memory; }
+    private static final Pattern VISUAL_REFERENCE = Pattern.compile("(?is).*(眼前|左边|右边|前面|这个|那个|这条路|这栋|in front|on the left|on the right|this block|that door).*");
     public void ask(org.bukkit.entity.Player player, String question) {
         if (settings.perception().enabled() && player.hasPermission("pandagpt.vision")
-                && question.matches("(?is).*(眼前|左边|右边|前面|这个|那个|这条路|这栋|in front|on the left|on the right|this block|that door).*"))
+                && VISUAL_REFERENCE.matcher(question).matches())
             vision.capture(player, question, false);
         else service.ask(player, question);
     }

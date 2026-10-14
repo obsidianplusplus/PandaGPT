@@ -112,10 +112,12 @@ class AssistantServiceTest {
         AiProvider provider = request -> { entered.countDown(); release.await(); return new AiResponse("answer", List.of()); };
         var c = TestSupport.config(); c.set("gemini.api_key", "test"); c.set("panda.command_awareness.enabled", false);
         c.set("panda.requests.workers", 1); c.set("panda.requests.queue_size", 1);
-        try (var service = new AssistantService(f.plugin, Settings.load(c), provider, mock(PandaLogger.class), null, "", Clock.systemUTC(), (p, q) -> "")) {
+        var captures = new java.util.concurrent.atomic.AtomicInteger();
+        try (var service = new AssistantService(f.plugin, Settings.load(c), provider, mock(PandaLogger.class), null, "", Clock.systemUTC(), (p, q) -> { captures.incrementAndGet(); return ""; })) {
             service.ask(f.player, "first"); assertTrue(entered.await(5, TimeUnit.SECONDS));
             service.ask(player(), "queued"); Player rejected = player(); service.ask(rejected, "overflow");
             assertTrue(service.status().contains("queued=1"));
+            assertEquals(2, captures.get(), "Rejected requests must not collect world/inventory context");
             var cap = ArgumentCaptor.forClass(Component.class); verify(rejected).sendMessage(cap.capture());
             assertTrue(net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(cap.getValue()).contains("队列已满"));
         } finally { release.countDown(); }

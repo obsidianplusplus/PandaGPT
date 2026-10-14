@@ -14,6 +14,14 @@ public final class BlockTextures implements AutoCloseable {
     private record State(String id, Map<String, String> properties) {}
     private record Quad(Vec3 a, Vec3 b, Vec3 d, String face, double[] uv, int rotation,
                         String texture, int tint, Variant variant) {}
+    private record Selection(String state, int x, int y, int z) {}
+    private static <K,V> Map<K,V> boundedCache(int limit) {
+        return new LinkedHashMap<>(16, .75f, true) {
+            @Override protected boolean removeEldestEntry(Map.Entry<K,V> eldest) { return size() > limit; }
+        };
+    }
+    private final Map<String, State> states = boundedCache(4096);
+    private final Map<Selection, List<Variant>> selections = boundedCache(8192);
     private final ResourcePack resources;
     private final Map<String, Model> models = new HashMap<>();
     private final Map<Variant, List<Quad>> geometry = new HashMap<>();
@@ -21,7 +29,7 @@ public final class BlockTextures implements AutoCloseable {
     public BlockTextures(ResourcePack resources) { this.resources = resources; }
     public List<String> packNames() { return resources.names(); }
     public Pixel sample(RaySample hit) throws IOException {
-        State state = state(hit.blockData());
+        State state = states.computeIfAbsent(hit.blockData(), BlockTextures::state);
         Vec3 point = new Vec3((hit.hitPosition().x() - hit.blockX()) * 16,
                 (hit.hitPosition().y() - hit.blockY()) * 16, (hit.hitPosition().z() - hit.blockZ()) * 16);
         if (state.id.equals("minecraft:water") || state.id.equals("minecraft:lava")) {
@@ -35,7 +43,9 @@ public final class BlockTextures implements AutoCloseable {
         }
         JsonObject blockstate = resources.json(ResourcePack.asset(state.id, "blockstates", ".json"));
         if (blockstate == null) return new Pixel(0, false);
-        List<Variant> variants = variants(blockstate, state.properties, hit);
+        Selection selection = new Selection(hit.blockData(), hit.blockX(), hit.blockY(), hit.blockZ());
+        List<Variant> variants = selections.get(selection);
+        if (variants == null) { variants = List.copyOf(variants(blockstate, state.properties, hit)); selections.put(selection, variants); }
         int argb = 0;
         boolean resolved = false;
         for (Variant variant : variants) {
@@ -333,5 +343,5 @@ public final class BlockTextures implements AutoCloseable {
         for (int i = 0; i < count; i++) { n[i] = values.get(i).getAsDouble(); if (!Double.isFinite(n[i]) || Math.abs(n[i]) > 1024) throw new IOException("Invalid model coordinate"); }
         return n;
     }
-    @Override public void close() { models.clear(); geometry.clear(); resources.close(); }
+    @Override public void close() { models.clear(); geometry.clear(); states.clear(); selections.clear(); resources.close(); }
 }

@@ -1,0 +1,28 @@
+{
+  "workload": "256 identical forward rays, 96 blocks, all air, sent+loaded chunks; deterministic calls, not live TPS",
+  "baseline": {
+    "block_reads": 24832,
+    "chunk_checks": 24832,
+    "completed_rays": 256
+  },
+  "cached_same_work": {
+    "chunk_checks": 7,
+    "completed_rays": 256,
+    "block_reads": 97,
+    "visited_cells": 24832
+  },
+  "default_cell_cap": {
+    "partial_ray_is_suspended": true,
+    "visited_cells": 8192,
+    "completed_rays": 84
+  },
+  "perspective_16x16_open_air": {
+    "completed_rays": 256,
+    "baseline_block_reads": 34412,
+    "baseline_chunk_checks": 34412,
+    "cached_chunk_checks": 34,
+    "visited_cells": 34412,
+    "cached_block_reads": 30544,
+    "note": "Unlimited cell quota for equal-work comparison; production still uses 8192 cells and a real deadline."
+  }
+}

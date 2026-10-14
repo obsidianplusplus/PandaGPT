@@ -38,6 +38,20 @@ class PerceptionControllerTest {
         var perception = new PerceptionController(plugin, settings.perception(), memory, mock(RecipeKnowledge.class)); perception.attach(vision);
         return new Fixture(plugin, player, world, vision, memory, perception);
     }
+    @Test void playerRotationDoesNotCopyOnlineCollectionAndPermissionCanBeRestored() throws Exception {
+        try (Fixture f = fixture()) {
+            clearInvocations(f.plugin.getServer());
+            when(f.player.hasPermission("pandagpt.use")).thenReturn(false);
+            for (int i = 0; i < 20; i++) f.perception.tick();
+            verify(f.vision, never()).observe(any(Player.class));
+            when(f.player.hasPermission("pandagpt.use")).thenReturn(true);
+            for (int i = 0; i < 20; i++) f.perception.tick();
+            assertTrue(f.memory.drain(5000));
+            for (int i = 0; i < 20; i++) f.perception.tick();
+            verify(f.vision, atLeastOnce()).observe(f.player);
+            verify(f.plugin.getServer(), never()).getOnlinePlayers();
+        }
+    }
     @Test void quietModeStopsAmbientCaptureAndSurvivesControllerReload() throws Exception {
         try (Fixture f = fixture()) {
             f.perception.command(f.player, new String[]{"proactive", "off"}); assertTrue(f.memory.drain(5000));

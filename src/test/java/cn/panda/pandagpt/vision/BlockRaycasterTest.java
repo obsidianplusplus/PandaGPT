@@ -7,12 +7,31 @@ import org.bukkit.block.data.BlockData;
 import org.bukkit.util.RayTraceResult;
 import org.bukkit.util.Vector;
 import org.junit.jupiter.api.Test;
-import java.util.Set;
+import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class BlockRaycasterTest {
     private final Camera camera = new Camera(new Camera.Vec3(.5, 64.5, .5), 0, 0, 3, 3, 70);
+    @Test void longRaysYieldAndCacheIsDiscardedAtTickBoundaries() {
+        World world = mock(World.class); Block air = mock(Block.class); Material material = spy(Material.AIR);
+        doReturn(true).when(material).isAir(); when(air.getType()).thenReturn(material);
+        when(world.getMinHeight()).thenReturn(-64); when(world.getMaxHeight()).thenReturn(320);
+        when(world.isChunkLoaded(anyInt(), anyInt())).thenReturn(true);
+        when(world.getBlockAt(anyInt(), anyInt(), anyInt())).thenReturn(air);
+        Set<Long> sent = new HashSet<>(); for (int z = 0; z <= 6; z++) sent.add(BlockRaycaster.chunkKey(0, z));
+        var raycaster = new BlockRaycaster(world, sent); raycaster.beginTick(1);
+        var trace = raycaster.begin(camera, camera.forward(), 96);
+        var budget = new cn.panda.pandagpt.performance.TickBudget(1000000000, 3, true);
+        assertNull(trace.advance(budget::cell)); assertEquals(3, raycaster.reads());
+        assertEquals(RaySample.Kind.NO_HIT_WITHIN_RANGE, trace.advance(() -> true).kind());
+        assertEquals(97, raycaster.reads());
+        assertEquals(RaySample.Kind.NO_HIT_WITHIN_RANGE, raycaster.begin(camera, camera.forward(), 96).advance(() -> true).kind());
+        assertEquals(97, raycaster.reads()); assertEquals(97, raycaster.cacheHits());
+        raycaster.beginTick(2); raycaster.begin(camera, camera.forward(), 96).advance(() -> true);
+        assertEquals(194, raycaster.reads());
+        verify(world, times(2)).isChunkLoaded(0, 0);
+    }
     @Test void neverReadsOrLoadsUnsentOrUnloadedChunks() {
         World world = mock(World.class);
         RaySample result = new BlockRaycaster(world, Set.of()).trace(camera, camera.forward(), 96);

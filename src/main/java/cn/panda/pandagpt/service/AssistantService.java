@@ -39,6 +39,7 @@ public final class AssistantService implements AutoCloseable {
     private final Clock clock;
     private final java.util.function.BiFunction<Player, String, String> contextSource;
     private volatile boolean closed;
+    private long nextExpiry = Long.MIN_VALUE;
 
     public AssistantService(ChatGPTIntegration plugin, Settings settings, AiProvider provider, PandaLogger logger,
                             RecipeKnowledge recipes, String knowledge) {
@@ -72,6 +73,7 @@ public final class AssistantService implements AutoCloseable {
         if (question.isBlank()) { tell(player, "请输入问题。"); return; }
         if (question.length() > settings.maxPromptChars()) { tell(player, "问题过长，请缩短后再试。"); return; }
         if (settings.apiKey().isBlank()) { tell(player, "所选模型服务没有配置 API 密钥，请联系管理员。"); return; }
+        if (workers.getQueue().remainingCapacity() == 0) { tell(player, "AI 请求队列已满，请稍后再试。"); return; }
         UUID id = player.getUniqueId();
         long now = clock.millis();
         expire();
@@ -189,13 +191,16 @@ public final class AssistantService implements AutoCloseable {
     }
     public void clearAll() { for (UUID id : List.copyOf(sessions.keySet())) clear(id); actions.clear(); }
     public void expire() {
-        long cutoff = clock.millis() - settings.sessionTtl().toMillis();
+        long now = clock.millis();
+        if (now < nextExpiry) return;
+        nextExpiry = now + Math.min(30000, settings.sessionTtl().toMillis());
+        long cutoff = now - settings.sessionTtl().toMillis();
         List<UUID> expired = sessions.entrySet().stream().filter(e -> e.getValue().requestId == null && e.getValue().touched <= cutoff)
                 .map(Map.Entry::getKey).toList();
         expired.forEach(this::clear); actions.expire();
     }
     public String status() {
-        return "provider=" + settings.provider() + ", model=" + settings.model() + ", configured=" + !settings.apiKey().isBlank()
+        return "log_dropped=" + logger.droppedEvents() + ", provider=" + settings.provider() + ", model=" + settings.model() + ", configured=" + !settings.apiKey().isBlank()
                 + ", active=" + workers.getActiveCount() + ", queued=" + workers.getQueue().size()
                 + ", sessions=" + sessions.size() + ", actions=" + (settings.commandAwareness() && settings.allowExecution());
     }

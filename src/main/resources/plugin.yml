@@ -1,5 +1,5 @@
 name: PandaGPT
-version: '2.1.0'
+version: '2.1.1'
 main: cn.panda.pandagpt.ChatGPTIntegration
 api-version: '26.3'
 description: A scene-aware Minecraft assistant with quiet suggestions, spatial memory and confirmed player actions.

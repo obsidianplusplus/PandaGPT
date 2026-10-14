@@ -16,7 +16,7 @@ public record Observation(UUID captureId, UUID world, long time, Camera camera, 
     public String context() {
         StringBuilder out = new StringBuilder("capture=" + captureId + ", world_uuid=" + world + ", sampled_at_ms=" + time + "\n");
         out.append(surfaces.context()).append('\n').append(spatial.context()).append('\n');
-        out.append("Entity observations (bounding-box ray samples, no actual entity textures):\n");
+        out.append("Entity observations (bounded sample, may be omitted under server load; an empty list never proves absence; bounding-box rays, no actual entity textures):\n");
         int number = 0;
         for (EntityObservation e : entities) out.append("E").append(++number).append(" ").append(e.type()).append(" uuid=").append(e.uuid()).append(" item=").append(e.item())
                 .append(" visibility=").append(e.visibility()).append(" targeting_player=").append(e.targetingPlayer())

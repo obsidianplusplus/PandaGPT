@@ -22,24 +22,29 @@ public final class PerceptionController implements AutoCloseable {
     }
     private final ChatGPTIntegration plugin; private final PerceptionSettings settings;
     private final SpatialMemory memory; private final RecipeKnowledge recipes;
-    private final List<RecipeKnowledge.Entry> recipeEntries;
+
     private final ObservationTimeline timeline; private final Map<UUID, State> states = new LinkedHashMap<>();
+    private final ArrayList<UUID> online = new ArrayList<>();
+    private final Set<UUID> onlineSet = new HashSet<>();
     private VisionController vision; private long ticks; private int cursor; private boolean closed;
     public PerceptionController(ChatGPTIntegration plugin, PerceptionSettings settings, SpatialMemory memory, RecipeKnowledge recipes) {
         this.plugin = plugin; this.settings = settings; this.memory = memory; this.recipes = recipes;
-        recipeEntries = recipes.entries();
+
         timeline = new ObservationTimeline(settings.maxPlayers());
+        for (Player player : plugin.getServer().getOnlinePlayers()) joined(player);
     }
     public void attach(VisionController vision) { this.vision = vision; vision.attach(this, settings); }
-    public void tick() {
-        if (closed || !settings.enabled() || ++ticks % 20 != 0) return;
-        List<? extends Player> online = new ArrayList<>(plugin.getServer().getOnlinePlayers());
+    public void tick() { tick(new cn.panda.pandagpt.performance.TickBudget(2000000, 8192, true)); }
+    public void tick(cn.panda.pandagpt.performance.TickBudget budget) {
+        if (closed || !settings.enabled() || ++ticks % 5 != 0 || !budget.background() || !budget.available()) return;
         if (online.isEmpty()) return;
         long now = System.currentTimeMillis();
         // At most four player inventories/state checks per second; perception jobs use VisionController's shared world-read budget.
-        for (int n = 0; n < Math.min(4, online.size()); n++) {
-            Player player = online.get(cursor++ % online.size());
-            if (!player.hasPermission("pandagpt.use")) { remove(player); continue; }
+        for (int n = 0; n < 1 && budget.available(); n++) {
+            if (cursor >= online.size()) cursor = 0;
+            Player player = plugin.getServer().getPlayer(online.get(cursor++));
+            if (player == null || !player.isOnline()) continue;
+            if (!player.hasPermission("pandagpt.use")) { forget(player); continue; }
             State s = state(player); if (s == null) continue;
             if (!s.loaded) continue; // Respect persisted quiet mode before any ambient observation.
             if (s.barUntil > 0 && now >= s.barUntil) { hide(player, s); s.barUntil = 0; }
@@ -47,7 +52,7 @@ public final class PerceptionController implements AutoCloseable {
                     && now - s.lastObserved >= settings.observeSeconds() * 1000L && !plugin.service().busy(player.getUniqueId())) {
                 if (vision.observe(player)) s.lastObserved = now;
             }
-            if (!s.goal.isEmpty()) updateGoal(player, s, now);
+            if (!s.goal.isEmpty()) updateGoal(player, s, now, budget::available);
             if (settings.proactive()) {
                 var candidate = s.quiet.poll(now, s.mode.equals("quiet"), now < s.busyUntil || plugin.service().busy(player.getUniqueId()), c -> valid(player, s, c, now));
                 if (candidate != null) {
@@ -61,8 +66,9 @@ public final class PerceptionController implements AutoCloseable {
     private State state(Player player) {
         UUID id = player.getUniqueId(); State s = states.get(id);
         if (s == null) { if (states.size() >= settings.maxPlayers()) return null; s = new State(settings); states.put(id, s); }
+        if (s.loaded) return s;
         var data = memory.view(id);
-        if (!s.loaded && memory.ready(id)) {
+        if (memory.ready(id)) {
             s.mode = data.mode(); s.goal = data.goal(); s.quantity = data.quantity();
             if (!s.goal.isEmpty() && !GoalProgress.valid(s.goal)) s.goal = "";
             s.loaded = true;
@@ -96,9 +102,12 @@ public final class PerceptionController implements AutoCloseable {
         }
     }
     private void updateGoal(Player player, State s, long now) {
+        long deadline = System.nanoTime() + 1000000; updateGoal(player, s, now, () -> System.nanoTime() < deadline);
+    }
+    private void updateGoal(Player player, State s, long now, java.util.function.BooleanSupplier permit) {
         var stock = player.getInventory().getStorageContents();
         var all = player.getInventory().getContents(); if (all == null) all = stock;
-        var progress = GoalProgress.evaluate(s.goal, s.quantity, stock, all, recipeEntries);
+        var progress = GoalProgress.evaluate(s.goal, s.quantity, stock, all, recipes.forTarget(s.goal), permit);
         if (s.bar == null && !progress.complete()) {
             s.bar = BossBar.bossBar(Component.text(progress.label()), (float) progress.fraction(), BossBar.Color.BLUE, BossBar.Overlay.PROGRESS);
             if (s.mode.equals("assist")) player.showBossBar(s.bar);
@@ -262,7 +271,13 @@ public final class PerceptionController implements AutoCloseable {
                 block.getType().name().endsWith("_DOOR") ? 0 : now));
     }
     public void changed(UUID world, SceneObjects.Pos pos) { timeline.invalidate(world, pos); memory.invalidate(world, pos); if (vision != null) vision.changed(world, pos); }
-    public void remove(Player player) { State s = states.remove(player.getUniqueId()); if (s != null) hide(player, s); timeline.remove(player.getUniqueId()); memory.release(player.getUniqueId()); }
+    public void joined(Player player) {
+        if (onlineSet.add(player.getUniqueId())) online.add(player.getUniqueId());
+    }
+    public void remove(Player player) {
+        onlineSet.remove(player.getUniqueId()); online.remove(player.getUniqueId()); forget(player);
+    }
+    private void forget(Player player) { State s = states.remove(player.getUniqueId()); if (s != null) { hide(player, s); memory.release(player.getUniqueId()); } timeline.remove(player.getUniqueId()); }
     public void clearTransient() { timeline.clear(); states.values().forEach(s -> s.quiet.clear()); }
     private void hide(Player player, State s) { if (s.bar != null) { player.hideBossBar(s.bar); s.bar = null; } }
     private static void tell(Player player, String text) { player.sendMessage(Component.text("[Panda 感知] " + text, NamedTextColor.AQUA)); }
