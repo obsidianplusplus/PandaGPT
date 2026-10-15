@@ -141,7 +141,7 @@ See [Game Memory & Distillation](Game-Memory.md).
 
 | Key | Default | Meaning |
 |---|---|---|
-| `panda.integrations.disabled` | `[]` | Disabled integration ids |
+| `panda.integrations.disabled` | `[]` | Disabled integration ids; includes citizens/shopkeepers/quests/bentobox/itemsadder/oraxen/jobs/multiverse |
 | `panda.integrations.placeholder_denylist` | `[ip, address, password, token, email, uuid]` | Placeholders containing these fragments are not resolved |
 | `panda.integrations.block_history_days` | 7 | Days of CoreProtect history |
 

@@ -18,8 +18,8 @@
 [![Build](https://img.shields.io/github/actions/workflow/status/obsidianplusplus/PandaGPT/build.yml?style=flat-square&label=build)](https://github.com/obsidianplusplus/PandaGPT/actions)
 <br/>
 ![Providers](https://img.shields.io/badge/模型服务商-15-8957e5?style=flat-square)
-![Integrations](https://img.shields.io/badge/插件集成-11-d29922?style=flat-square)
-![Skills](https://img.shields.io/badge/技能-35-0a7ea4?style=flat-square)
+![Integrations](https://img.shields.io/badge/插件集成-19-d29922?style=flat-square)
+![Skills](https://img.shields.io/badge/技能-43-0a7ea4?style=flat-square)
 ![Languages](https://img.shields.io/badge/语言-12-cf222e?style=flat-square)
 
 [✨ 亮点](#-亮点) · [🎬 体验](#-一段对话) · [🚀 快速开始](#-快速开始) · [🤖 模型](#-支持的模型) · [🧩 功能](#-功能全景) · [🔌 插件](#-插件生态) · [📚 Wiki](docs/wiki/zh/Home.md) · [📝 更新日志](CHANGELOG.md)
@@ -41,7 +41,7 @@
 <td width="33%" valign="top">
 
 ### 🧠 真正的 Agent
-多步、并行的工具调用循环，64 个工具、35 个技能按需加载，自己决定先看、先查还是先问。
+多步、并行的工具调用循环，76 个工具、43 个技能按需加载，自己决定先看、先查还是先问。
 
 </td>
 <td width="33%" valign="top">
@@ -61,7 +61,7 @@
 <td valign="top">
 
 ### 🔌 懂你的服务器
-对接 Vault、LuckPerms、WorldGuard、Towny、Essentials 等 11 个插件，并通过 PlaceholderAPI 覆盖更多。
+对接 Vault、LuckPerms、WorldGuard、Towny、Essentials 等 19 个插件，并通过 PlaceholderAPI 覆盖更多。
 
 </td>
 <td valign="top">
@@ -181,17 +181,19 @@ panda:
 
 | 💰 Vault | 🧩 PlaceholderAPI | 🎖️ LuckPerms | 🛡️ WorldGuard | 🏡 GriefPrevention | 🏰 Towny |
 |:---:|:---:|:---:|:---:|:---:|:---:|
-| **🗺️ Lands** | **🏠 EssentialsX** | **🕵️ CoreProtect** | **⚔️ mcMMO** | **✨ AuraSkills** | **➕ PAPI 扩展** |
+| **🗺️ Lands** | **🏠 EssentialsX** | **🕵️ CoreProtect** | **⚔️ mcMMO** | **✨ AuraSkills** | **🧑 Citizens** |
+| **🛒 Shopkeepers** | **📜 Quests** | **🏝️ BentoBox** | **🎨 ItemsAdder** | **🧰 Oraxen** | **⛏️ Jobs Reborn** |
+| **🌐 Multiverse-Core 5** | **➕ PAPI 扩展** | | | | |
 
-Jobs、Quests、商店、拍卖行等通过 PlaceholderAPI 与服务器资料覆盖。📖 [插件集成](docs/wiki/zh/Plugin-Integrations.md)
+新增 NPC、商店交易会话、任务阶段、空岛、自定义物品、职业与多世界原生适配。其他玩法仍可通过 PlaceholderAPI 与服务器资料扩展。📖 [插件集成](docs/wiki/zh/Plugin-Integrations.md)
 
 ## 🏗️ 工作原理
 
 ```mermaid
 flowchart LR
     P["🎮 玩家说话"] --> A["🧠 Agent<br/>系统提示 + 技能目录"]
-    A -->|load_skill| S["📜 35 个技能"]
-    A -->|调用工具| T["🛠️ 64 个工具<br/>主线程执行"]
+    A -->|load_skill| S["📜 43 个技能"]
+    A -->|调用工具| T["🛠️ 76 个工具<br/>主线程执行"]
     T --> W["🌍 世界 · 背包 · 记忆"]
     T --> I["🔌 插件 API"]
     T --> V["👁️ 视觉重建"]

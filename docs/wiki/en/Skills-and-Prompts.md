@@ -60,7 +60,7 @@ Limits: up to 64 skills, 16 KiB per file.
 | Enable only with a plugin | Add `requires: <integration id or plugin name>` |
 | Disable skills | `panda.agent.disabled_skills: [commands, vision]`; their tools disappear too |
 
-### Built-in skills (35)
+### Built-in skills (43)
 
 <details open>
 <summary><b>🧩 Core and general (16, with tools)</b></summary>
@@ -103,9 +103,9 @@ Limits: up to 64 skills, 16 KiB per file.
 </details>
 
 <details>
-<summary><b>🔌 Plugin skills (11, loaded only with their plugin)</b></summary>
+<summary><b>🔌 Plugin skills (19, loaded only with their plugin)</b></summary>
 
-`economy`, `placeholders`, `ranks`, `regions`, `claims`, `towny`, `lands`, `essentials`, `block-history`, `mcmmo`, `auraskills`. See [Plugin Integrations](Plugin-Integrations.md).
+`economy`, `placeholders`, `ranks`, `regions`, `claims`, `towny`, `lands`, `essentials`, `block-history`, `mcmmo`, `auraskills`, `citizens`, `shopkeepers`, `quests`, `bentobox`, `itemsadder`, `oraxen`, `jobs`, `multiverse`. See [Plugin Integrations](Plugin-Integrations.md).
 
 </details>
 

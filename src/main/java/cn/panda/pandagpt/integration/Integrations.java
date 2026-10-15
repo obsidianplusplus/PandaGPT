@@ -52,13 +52,41 @@ public final class Integrations {
                     "auraskills",
                     "AuraSkills",
                     "cn.panda.pandagpt.integration.AuraSkillsAdapter",
-                    "AuraSkills 技能、属性与法力"));
+                    "AuraSkills 技能、属性与法力"),
+            new Spec("citizens", "Citizens", "cn.panda.pandagpt.integration.CitizensAdapter", "附近可见 NPC 的名称、ID 与位置"),
+            new Spec(
+                    "shopkeepers",
+                    "Shopkeepers",
+                    "cn.panda.pandagpt.integration.ShopkeepersAdapter",
+                    "附近可见商店与玩家当前交易界面的报价"),
+            new Spec("quests", "Quests", "cn.panda.pandagpt.integration.QuestsAdapter", "已加载的玩家任务与当前阶段进度"),
+            new Spec("bentobox", "BentoBox", "cn.panda.pandagpt.integration.BentoBoxAdapter", "自己的空岛与当前岛屿信息"),
+            new Spec(
+                    "itemsadder",
+                    "ItemsAdder",
+                    "cn.panda.pandagpt.integration.ItemsAdderAdapter",
+                    "当前玩家物品的命名空间 ID、自定义耐久与用途"),
+            new Spec("oraxen", "Oraxen", "cn.panda.pandagpt.integration.OraxenAdapter", "当前玩家的自定义物品 ID 与实际物品描述"),
+            new Spec("jobs", "Jobs", "cn.panda.pandagpt.integration.JobsAdapter", "Jobs Reborn 职业等级、经验与有加入权限的职业目录"),
+            new Spec(
+                    "multiverse",
+                    "Multiverse-Core",
+                    "cn.panda.pandagpt.integration.MultiverseAdapter",
+                    "Multiverse-Core 5 可见世界与访问范围、模式、PvP 和费用"));
 
     /** 探测结果：已启用的适配器与加载失败的集成。 */
     public record Detected(List<Integration> active, List<String> failed) {
         public Set<String> ids() {
             return Set.copyOf(active.stream().map(Integration::id).toList());
         }
+    }
+
+    /** Known integration IDs require a successfully validated adapter, even if plugin-name lookup is case-insensitive. */
+    public static boolean requirementAvailable(
+            String requirement, Set<String> active, java.util.function.Predicate<String> pluginEnabled) {
+        return SPECS.stream().anyMatch(spec -> spec.id().equals(requirement))
+                ? active.contains(requirement)
+                : pluginEnabled.test(requirement);
     }
 
     public static Detected detect(Server server, Set<String> disabled, Consumer<String> warn) {
@@ -69,7 +97,9 @@ public final class Integrations {
                 continue;
             }
             try {
-                active.add(load(spec));
+                Integration adapter = load(spec);
+                adapter.validate(server.getPluginManager().getPlugin(spec.plugin()));
+                active.add(adapter);
             } catch (ReflectiveOperationException | LinkageError | RuntimeException e) {
                 failed.add(spec.id());
                 warn.accept(spec.plugin() + ": " + e.getClass().getSimpleName());

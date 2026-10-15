@@ -67,7 +67,7 @@ panda:
     max_reminders: 10 # 每位玩家同时存在的提醒上限；0 表示关闭提醒。
     map_url: '' # 在线地图链接模板，例如 'https://map.example.com/#{world}:{x}:{y}:{z}:50:0:0:0:0:perspective'；留空表示没有网页地图。
   integrations:
-    disabled: [] # 不启用的外部插件集成：economy placeholders ranks regions claims towny lands essentials block-history mcmmo auraskills
+    disabled: [] # 不启用的外部插件集成：economy placeholders ranks regions claims towny lands essentials block-history mcmmo auraskills citizens shopkeepers quests bentobox itemsadder oraxen jobs multiverse
     placeholder_denylist: ['ip', 'address', 'password', 'token', 'email', 'uuid'] # 包含这些片段的变量一律不解析，防止泄露隐私。
     block_history_days: 7 # CoreProtect 方块记录最多查询的天数（需要 pandagpt.blockhistory 权限）。
   model_selection:

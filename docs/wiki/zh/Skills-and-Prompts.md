@@ -16,7 +16,7 @@ Agent 的行为不是写死在代码里的，而是由两类文本文件决定�
 
 ```mermaid
 flowchart LR
-    A["系统提示<br/>只列 35 个技能的名称 + 一句话简介"] --> B{"模型判断<br/>需要哪个技能？"}
+    A["系统提示<br/>只列 43 个技能的名称 + 一句话简介"] --> B{"模型判断<br/>需要哪个技能？"}
     B -->|load_skill("building")| C["读取技能全文<br/>详细做法 + 解锁对应工具"]
     C --> D["调用 preview_structure 等工具"]
 ```
@@ -60,7 +60,7 @@ requires: essentials
 | 只在装了某插件时启用 | 在头部写 `requires: <集成编号或插件名>` |
 | 关闭技能 | `panda.agent.disabled_skills: [commands, vision]`，对应工具一并消失 |
 
-### 内置技能（35 个）
+### 内置技能（43 个）
 
 <details open>
 <summary><b>🧩 核心与通用（16 个，带工具）</b></summary>
@@ -103,9 +103,9 @@ requires: essentials
 </details>
 
 <details>
-<summary><b>🔌 插件技能（11 个，装了对应插件才加载）</b></summary>
+<summary><b>🔌 插件技能（19 个，装了对应插件才加载）</b></summary>
 
-`economy`、`placeholders`、`ranks`、`regions`、`claims`、`towny`、`lands`、`essentials`、`block-history`、`mcmmo`、`auraskills`。详见 [插件集成](Plugin-Integrations.md)。
+`economy`、`placeholders`、`ranks`、`regions`、`claims`、`towny`、`lands`、`essentials`、`block-history`、`mcmmo`、`auraskills`、`citizens`、`shopkeepers`、`quests`、`bentobox`、`itemsadder`、`oraxen`、`jobs`、`multiverse`。详见 [插件集成](Plugin-Integrations.md)。
 
 </details>
 

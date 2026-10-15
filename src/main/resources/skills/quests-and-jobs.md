@@ -5,7 +5,7 @@ requires: placeholders
 ---
 # 任务、职业与其他玩法插件
 
-这类插件种类繁多（Quests、BetonQuest、Jobs Reborn、BattlePass、ShopGUI+、AuctionHouse……），插件没有专门技能时按下面的方法处理：
+这类插件种类繁多（Quests、BetonQuest、Jobs Reborn、BattlePass、ShopGUI+、AuctionHouse……），已验证的 Quests / Jobs Reborn 安装时优先使用 quests / jobs 原生技能；Shopkeepers 用 shopkeepers 技能。插件没有专门技能时按下面的方法处理：
 
 1. server_plugins 确认本服装了什么；
 2. list_placeholder_expansions 看它是否注册了变量，用 resolve_placeholders 读取玩家自己的进度；

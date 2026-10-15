@@ -12,6 +12,9 @@ Player-facing and server-owner changes, configuration updates and upgrade notes,
 
 ### Added
 
+- Added 8 ecosystem adapters: Citizens, Shopkeepers, Quests, BentoBox, ItemsAdder, Oraxen, Jobs Reborn and Multiverse-Core 5, with 12 independent read tools and 8 on-demand skills. Totals: 19 integrations, 43 skills and 76 tools.
+- New adapters validate native public API signatures before activation; incompatible plugins are skipped with a warning.
+
 - **Game memory**: retrieve experiences, facts and preferences, plans and lessons when the player actually needs the right record.
 - **Memory distillation**: four independent pipelines for episodes, facts, plans and lessons, each with its own deduplication rules and capacity budget, reading original evidence directly.
 - Persistent server-observed deaths and advancements, with existing places, personal notes and the current crafting goal included in retrieval.

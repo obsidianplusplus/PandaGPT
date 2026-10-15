@@ -141,7 +141,7 @@ panda:
 
 | 键 | 默认 | 说明 |
 |---|---|---|
-| `panda.integrations.disabled` | `[]` | 关闭的集成编号 |
+| `panda.integrations.disabled` | `[]` | 关闭的集成编号；支持列表见 Plugin-Integrations（新增 citizens/shopkeepers/quests/bentobox/itemsadder/oraxen/jobs/multiverse） |
 | `panda.integrations.placeholder_denylist` | `[ip, address, password, token, email, uuid]` | 变量名包含这些片段时不解析 |
 | `panda.integrations.block_history_days` | 7 | CoreProtect 最多查询的天数 |
 

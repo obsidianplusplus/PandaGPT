@@ -149,6 +149,14 @@ See [Game Memory & Distillation](Game-Memory.md).
 | CoreProtect | `block_history` |
 | mcMMO | `mcmmo_skills` |
 | AuraSkills | `auraskills_profile` |
+| Citizens | `citizens_nearby` |
+| Shopkeepers | `shopkeepers_nearby` · `shopkeepers_trades` |
+| Quests | `quests_active` |
+| BentoBox | `bentobox_my_islands` · `bentobox_island_here` |
+| ItemsAdder | `itemsadder_item` |
+| Oraxen | `oraxen_item` |
+| Jobs Reborn | `jobs_progress` · `jobs_catalog` |
+| Multiverse-Core 5 | `multiverse_worlds` · `multiverse_here` |
 
 See [Plugin Integrations](Plugin-Integrations.md).
 

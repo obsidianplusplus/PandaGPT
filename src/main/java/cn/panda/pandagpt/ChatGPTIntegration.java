@@ -189,8 +189,10 @@ public final class ChatGPTIntegration extends JavaPlugin {
         SkillLibrary nextSkills = SkillLibrary.load(
                 folder.resolve("skills"),
                 next.agent().disabledSkills(),
-                requirement -> activeIntegrations.contains(requirement)
-                        || getServer().getPluginManager().isPluginEnabled(requirement));
+                requirement -> Integrations.requirementAvailable(
+                        requirement,
+                        activeIntegrations,
+                        name -> getServer().getPluginManager().isPluginEnabled(name)));
         PromptLibrary nextPrompts = PromptLibrary.load(folder.resolve("prompts"));
         RecipeKnowledge recipes = new RecipeKnowledge(getServer());
         PandaLogger log = new PandaLogger(folder, next);

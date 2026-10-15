@@ -18,8 +18,8 @@
 [![Build](https://img.shields.io/github/actions/workflow/status/obsidianplusplus/PandaGPT/build.yml?style=flat-square&label=build)](https://github.com/obsidianplusplus/PandaGPT/actions)
 <br/>
 ![Providers](https://img.shields.io/badge/model_providers-15-8957e5?style=flat-square)
-![Integrations](https://img.shields.io/badge/plugin_integrations-11-d29922?style=flat-square)
-![Skills](https://img.shields.io/badge/skills-35-0a7ea4?style=flat-square)
+![Integrations](https://img.shields.io/badge/plugin_integrations-19-d29922?style=flat-square)
+![Skills](https://img.shields.io/badge/skills-43-0a7ea4?style=flat-square)
 ![Languages](https://img.shields.io/badge/languages-12-cf222e?style=flat-square)
 
 [✨ Highlights](#-highlights) · [🎬 Demo](#-a-conversation) · [🚀 Quick start](#-quick-start) · [🤖 Models](#-supported-models) · [🧩 Features](#-features) · [🔌 Plugins](#-plugin-ecosystem) · [📚 Wiki](docs/wiki/en/Home.md) · [📝 Changelog](CHANGELOG.en.md)
@@ -41,7 +41,7 @@ Players have no commands at all. Start a chat message with `panda`, talk like yo
 <td width="33%" valign="top">
 
 ### 🧠 A real agent
-A multi-step, parallel tool-calling loop with 64 tools and 35 on-demand skills. It decides whether to look, search or ask first.
+A multi-step, parallel tool-calling loop with 76 tools and 43 on-demand skills. It decides whether to look, search or ask first.
 
 </td>
 <td width="33%" valign="top">
@@ -61,7 +61,7 @@ Proactive tips are checked before they're sent, strictly rate-limited and dedupl
 <td valign="top">
 
 ### 🔌 Knows your server
-Hooks into 11 plugins such as Vault, LuckPerms, WorldGuard, Towny and Essentials, and reaches many more through PlaceholderAPI.
+Hooks into 19 plugins such as Vault, LuckPerms, WorldGuard, Towny and Essentials, and reaches many more through PlaceholderAPI.
 
 </td>
 <td valign="top">
@@ -181,17 +181,19 @@ Install a plugin and it just works; missing plugins hide themselves. No configur
 
 | 💰 Vault | 🧩 PlaceholderAPI | 🎖️ LuckPerms | 🛡️ WorldGuard | 🏡 GriefPrevention | 🏰 Towny |
 |:---:|:---:|:---:|:---:|:---:|:---:|
-| **🗺️ Lands** | **🏠 EssentialsX** | **🕵️ CoreProtect** | **⚔️ mcMMO** | **✨ AuraSkills** | **➕ PAPI expansions** |
+| **🗺️ Lands** | **🏠 EssentialsX** | **🕵️ CoreProtect** | **⚔️ mcMMO** | **✨ AuraSkills** | **🧑 Citizens** |
+| **🛒 Shopkeepers** | **📜 Quests** | **🏝️ BentoBox** | **🎨 ItemsAdder** | **🧰 Oraxen** | **⛏️ Jobs Reborn** |
+| **🌐 Multiverse-Core 5** | **➕ PAPI expansions** | | | | |
 
-Jobs, Quests, shops, auction houses and more are covered through PlaceholderAPI and your server docs. 📖 [Plugin Integrations](docs/wiki/en/Plugin-Integrations.md)
+Native adapters now cover NPCs, shop trading sessions, quest stages, islands, custom items, professions and multiple worlds. Other gameplay plugins can still use PlaceholderAPI and server docs. 📖 [Plugin Integrations](docs/wiki/en/Plugin-Integrations.md)
 
 ## 🏗️ How it works
 
 ```mermaid
 flowchart LR
     P["🎮 Player talks"] --> A["🧠 Agent<br/>system prompt + skill catalog"]
-    A -->|load_skill| S["📜 35 skills"]
-    A -->|tool calls| T["🛠️ 64 tools<br/>on the main thread"]
+    A -->|load_skill| S["📜 43 skills"]
+    A -->|tool calls| T["🛠️ 76 tools<br/>on the main thread"]
     T --> W["🌍 World · inventory · memory"]
     T --> I["🔌 Plugin APIs"]
     T --> V["👁️ Vision"]
