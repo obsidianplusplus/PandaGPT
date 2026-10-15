@@ -13,6 +13,7 @@ import cn.panda.pandagpt.agent.tools.MemoryTools;
 import cn.panda.pandagpt.agent.tools.NavigationTools;
 import cn.panda.pandagpt.agent.tools.PlaceTools;
 import cn.panda.pandagpt.agent.tools.ReminderTools;
+import cn.panda.pandagpt.agent.tools.RuntimeTools;
 import cn.panda.pandagpt.agent.tools.VisionTools;
 import cn.panda.pandagpt.agent.tools.WorldTools;
 import cn.panda.pandagpt.ai.HttpAiProvider;
@@ -124,6 +125,7 @@ public final class ChatGPTIntegration extends JavaPlugin {
                                 var budget = vision.newBudget();
                                 vision.tick(budget);
                                 perception.tick(budget);
+                                if (budget.background() && budget.available()) service.tick();
                                 vision.finishTick(budget);
                                 features.tick();
                             },
@@ -213,6 +215,7 @@ public final class ChatGPTIntegration extends JavaPlugin {
         // 工具在调用时才读取当前的模块实例，因此重载后自动指向新的服务。
         ToolRegistry registry = new ToolRegistry()
                 .register(AssistantTools.create(this))
+                .register(RuntimeTools.create(this))
                 .register(PlaceTools.create(this))
                 .register(GoalTools.create(this))
                 .register(WorldTools.create(this))

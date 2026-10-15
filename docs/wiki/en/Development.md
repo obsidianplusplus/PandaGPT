@@ -35,7 +35,7 @@ Without the property, official-asset tests are skipped and everything else runs.
 
 ```text
 cn.panda.pandagpt
-├── agent/          agent loop, tool registry, skills and prompts
+├── agent/          agent loop, session task runtime, tools, skills and prompts
 │   └── tools/      built-in tools grouped by domain
 ├── ai/             wire formats: OpenAI-compatible, Gemini, Anthropic; HTTP client
 ├── integration/    plugin adapters (lazy-loaded by class name)
@@ -51,19 +51,37 @@ cn.panda.pandagpt
 
 ## Adding a tool
 
-1. Define it in `agent/tools/` with `AgentTool.of(name, description, parameter schema, availability, action-bar activity, handler)`; for multi-tick work use `AgentTool.async` with a handler returning a `CompletableFuture`;
-2. Register it in the plugin's `ToolRegistry`;
-3. List it under `tools:` in a skill, otherwise the model never sees it;
-4. If it is read-only and suits proactive turns, add it to `AssistantService.PROACTIVE_TOOLS`;
-5. `SkillLibraryTest` checks that skills and tools match one to one.
+1. Define ordinary synchronous tools with `AgentTool.of`; use `AgentTool.async` for multi-tick or asynchronous results. Unmarked tools form serial execution barriers.
+2. Only independent reads should use `readOnlyOf`, `readOnlyAsync` or the `readOnly` wrapper to declare `independentRead()`. Never label gameplay/player mutations as queries.
+3. Register the tool in `ToolRegistry` and list it under a skill's `tools:`. The three built-in runtime tools have separate compatibility handling for old core headers.
+4. Proactive turns automatically consider independent reads from enabled skills and check permission and `available`. `AssistantService.PROACTIVE_TOOLS` retains compatibility for older reads; new independent queries need no extra manual entry there.
+5. Tool entry still runs on the server thread. Copy Bukkit data before handing immutable values to background work. Returned futures must support cancellation; tools must not continue mutating the world after returning.
+6. `SkillLibraryTest` checks ownership. Add meaningful permission-change, failure, size and cancellation coverage as appropriate; independent queries also need concurrency-bound and result-order checks.
 
 ## Adding a plugin integration
 
-1. Add the API to `pom.xml` as `provided`, excluding transitive dependencies;
-2. Implement `Integration` in `integration/`;
-3. Register the id, plugin name, adapter class name and summary in `Integrations.SPECS`;
-4. Create a skill with `requires: <integration id>`;
-5. Add the plugin to `softdepend` in `plugin.yml`.
+1. Implement `Integration` under `integration/`. For compile-time APIs use `provided` and exclude transitive dependencies; for reflective public APIs add no vendor dependency and use the installed plugin's ClassLoader.
+2. New reflective adapters use `validate(Plugin)` to check fixed public classes, method signatures and return types. Validation must not load players, create profiles or access worlds. Skip incompatible adapters with a warning.
+3. Register the id, plugin name, class and description in `Integrations.SPECS`, and add `softdepend` in `plugin.yml`.
+4. Create a skill with `requires: <integration id>`. Known integration IDs are available only after successful adapter activation; raw plugin presence cannot bypass failed validation.
+5. Filter by native permissions and the caller's identity, with fixed scan/output limits. Missing evidence returns unknown or an explicit error. Only independent reads qualify for concurrency.
+6. Cover skill/registration, permissions and incompatibility, then update bilingual support tables and configuration IDs. Never bundle vendor implementations in the JAR.
+
+## Runtime responsibilities
+
+- `AgentRuntime` keeps server-thread working plans, steps, phases and one-shot checks; it neither reads Bukkit nor persists long-term evidence.
+- `RuntimeTools` validates the original player request and plan arguments; proactive turns can only revise an existing objective and cannot refill the allowance.
+- `AssistantService` owns player rotation, context, background-turn identity, preemption, session cleanup and delivery checks.
+- `AgentRunner` owns the multi-step model loop, independent-read concurrency, shared deadline and per-step text budget; cancellation reaches the client wait.
+- `ChatGPTIntegration` advances runtime rotation only when shared background work is allowed. Model-chosen waits must not block the server thread with sleep.
+
+Focused regression command:
+
+```bash
+mvn -Dtest=AgentRuntimeTest,RuntimeLimitsTest,AssistantServiceTest,ReadConcurrencyTest,SettingsTest test
+```
+
+These use scripted models and a mocked server to verify boundaries and scheduling. They do not replace long-running tests with real Paper, vendor plugins and paid models. Run the full `verify` command above for complete validation.
 
 ## Adding a model provider
 

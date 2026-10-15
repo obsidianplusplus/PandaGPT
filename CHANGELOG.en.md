@@ -8,6 +8,20 @@
 
 Player-facing and server-owner changes, configuration updates and upgrade notes, with the latest changes first.
 
+## Unreleased · 2026-10-15
+
+- Added a session agent runtime: model-maintained plans and activity interpretations, with bounded rechecks by time or changed state. Added `runtime_status`, `update_plan` and `schedule_follow_up`; total tools: 79.
+- AI makes the final routine proactive-message decision; unavailable models stay silent. Evaluations include recent conversation and relevant memories, with independent integration reads filtered by skills and permissions.
+- New questions preempt background turns; quiet mode, logout, expiry and changed observations suppress stale delivery. `stay_silent` ends the turn immediately.
+- Shared turn deadlines now cover model waits and cancel requests; each step checks text context limits and reports oversized evidence explicitly.
+- Added `panda.agent.runtime`: default minimum delay 60 seconds, up to 3 automatic follow-up turns per player request, each potentially making multiple model calls. Working plans do not survive restart; command and deletion authorization remains required.
+- Added `prompts/runtime.md`, appended while preserving existing custom system prompt files.
+
+### Documentation
+
+- Added a bilingual [Agent Runtime guide](docs/wiki/en/Agent-Runtime.md) covering phases, one-shot conditions, switches, cost, transient state and troubleshooting, linked from the Wiki home, sidebar and page navigation.
+- Updated installation, privacy, performance, development, player examples and FAQs; clarified that three checks budget turns rather than requests/cost, and corrected skill counts, threading and proactive-tool registration guidance.
+
 ## Unreleased · 2026-10-14
 
 ### Added

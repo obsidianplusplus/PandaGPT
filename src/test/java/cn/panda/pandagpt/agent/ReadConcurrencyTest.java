@@ -17,6 +17,7 @@ class ReadConcurrencyTest {
         var player = mock(Player.class);
         when(player.getUniqueId()).thenReturn(UUID.randomUUID());
         when(player.isOnline()).thenReturn(true);
+        when(player.hasPermission(anyString())).thenReturn(true);
         return player;
     }
 
@@ -146,7 +147,38 @@ class ReadConcurrencyTest {
     }
 
     @Test
-    void oneFailedReadDoesNotLoseOtherResultsAndDeadlinePreventsLateWrites() throws Exception {
+    void aFailedReadPreservesOtherResultsForTheNextModelStep() throws Exception {
+        Player player = player();
+        var seen = new CopyOnWriteArrayList<AiRequest>();
+        var tools = Map.of(
+                "bad",
+                        AgentTool.readOnlyAsync(
+                                "bad",
+                                "b",
+                                Schema.object(),
+                                p -> true,
+                                null,
+                                (c, a) -> CompletableFuture.failedFuture(new IllegalStateException())),
+                "good",
+                        AgentTool.readOnlyOf(
+                                "good", "g", Schema.object(), p -> true, null, (c, a) -> ToolResult.ok("ok")));
+        runner(player, provider(seen, "bad", "good"), 2, 30)
+                .run(new AgentRunner.Plan(
+                        new AgentTurn(player.getUniqueId(), AgentTurn.Kind.CONVERSATION),
+                        "en_US",
+                        "s",
+                        List.of(),
+                        tools,
+                        () -> false));
+        var results = seen.get(1).messages().stream()
+                .filter(m -> m.role().equals("tool"))
+                .toList();
+        assertTrue(results.get(0).content().contains("Tool failed"));
+        assertEquals("ok", results.get(1).content());
+    }
+
+    @Test
+    void deadlinePreventsLateWritesAndAnyFinalModelRequest() throws Exception {
         var player = player();
         var seen = new CopyOnWriteArrayList<AiRequest>();
         var hanging = new CompletableFuture<ToolResult>();
@@ -169,21 +201,17 @@ class ReadConcurrencyTest {
                             writes.incrementAndGet();
                             return ToolResult.ok("w");
                         }));
-        runner(player, provider(seen, "bad", "good", "hang", "write"), 3, 1)
-                .run(new AgentRunner.Plan(
-                        new AgentTurn(player.getUniqueId(), AgentTurn.Kind.CONVERSATION),
-                        "en_US",
-                        "s",
-                        List.of(),
-                        tools,
-                        () -> false));
-        var results = seen.get(1).messages().stream()
-                .filter(m -> m.role().equals("tool"))
-                .map(Message::content)
-                .toList();
-        assertTrue(results.get(0).contains("Tool failed"));
-        assertEquals("ok", results.get(1));
-        assertTrue(results.get(2).contains("timed out"));
+        assertThrows(
+                TimeoutException.class,
+                () -> runner(player, provider(seen, "bad", "good", "hang", "write"), 3, 1)
+                        .run(new AgentRunner.Plan(
+                                new AgentTurn(player.getUniqueId(), AgentTurn.Kind.CONVERSATION),
+                                "en_US",
+                                "s",
+                                List.of(),
+                                tools,
+                                () -> false)));
+        assertEquals(1, seen.size(), "No final model request is sent after the shared deadline.");
         assertEquals(0, writes.get());
         assertTrue(hanging.isCancelled());
     }

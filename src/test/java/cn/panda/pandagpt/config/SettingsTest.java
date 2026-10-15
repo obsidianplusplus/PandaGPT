@@ -51,4 +51,19 @@ class SettingsTest {
         config.set("panda.model_selection.gemini.api_key", "test-secret");
         assertFalse(Settings.load(config).toString().contains("test-secret"));
     }
+
+    @Test
+    void validatesRuntimeLimitsAndCanDisableFollowUps() {
+        for (String field : new String[] {"follow_up_min_seconds", "max_follow_ups"}) {
+            for (Object value : new Object[] {-1, 1.5, "invalid", 2001}) {
+                var config = TestSupport.config();
+                config.set("panda.agent.runtime." + field, value);
+                assertThrows(IllegalArgumentException.class, () -> Settings.load(config));
+            }
+        }
+        var config = TestSupport.config();
+        config.set("panda.agent.runtime.max_follow_ups", 0);
+        assertEquals(0, Settings.load(config).agent().runtime().maxFollowUps());
+        assertTrue(Settings.load(config).agent().runtime().enabled());
+    }
 }

@@ -34,7 +34,10 @@
 | `panda.agent.max_parallel_reads` | 3 | 1–8 | 独立只读工具同时等待上限；写入与未标记工具串行 |
 | `panda.agent.turn_timeout_seconds` | 120 | 10–600 | 每回合总时长，含全部模型请求与工具执行 |
 | `panda.agent.max_tool_result_chars` | 6000 | 500–32000 | 单个结果字符预算；记忆证据超限拒绝，其他截断标明缺失上下文 |
-| `panda.agent.proactive` | `true` | | 主动建议由 Agent 判断与措辞；关闭后使用内置文本 |
+| `panda.agent.proactive` | `true` | | 普通主动消息由 AI 最终决定；关闭或模型失败时保持安静 |
+| `panda.agent.runtime.enabled` | `true` | | 会话内计划、活动解释与有限复查；关闭后隐藏 3 个运行时工具 |
+| `panda.agent.runtime.follow_up_min_seconds` | 60 | 30–1800 | AI 安排复查的最小延迟；单次延迟最多 1800 秒 |
+| `panda.agent.runtime.max_follow_ups` | 3 | 0–6 | 每项请求最多自动复查回合数，每回合可多次请求模型；主动回合不能补充，0 关闭任务复查 |
 | `panda.agent.disabled_skills` | `[]` | | 关闭的技能，例如 `[commands, vision]` |
 
 ## 对话
@@ -46,10 +49,10 @@
 | `panda.cooldown` | 5000 | 每位玩家的冷却（毫秒） |
 | `panda.cancel_chat_message` | `true` | 隐藏触发 Panda 的聊天消息 |
 | `panda.history_rounds` | 5 | 保留的完整问答轮数（0–50） |
-| `panda.max_sessions` | 1000 | 同时保存的会话数 |
-| `panda.session_ttl_seconds` | 1800 | 会话空闲多久后清除 |
+| `panda.max_sessions` | 1000 | 会话与临时任务容量；满时可淘汰最久未使用的空闲会话 |
+| `panda.session_ttl_seconds` | 1800 | 空闲会话过期时间；清除时也取消临时任务复查 |
 | `panda.max_prompt_chars` | 2000 | 单次提问的最大字符数 |
-| `panda.context_char_budget` | 16000 | 上下文的字符预算（不是精确 token 数） |
+| `panda.context_char_budget` | 16000 | 每步检查提示词、消息文本与工具参数字符预算；不是 token 或完整传输字节上限 |
 | `panda.max_output_tokens` | 1000 | 模型单步输出上限 |
 
 ## 模型
@@ -100,9 +103,9 @@ panda:
 | `panda.perception.entity_radius` | 20 | 实体查询半径 |
 | `panda.perception.max_entities` | 16 | 保留的实体数 |
 | `panda.perception.max_players` | 128 | 同时维护记忆的玩家数 |
-| `panda.perception.proactive` | `true` | 是否产生主动建议 |
-| `panda.perception.suggestion_seconds` | 900 | 普通建议的最小间隔 |
-| `panda.perception.routine_per_half_hour` | 2 | 每半小时最多几条普通建议；0 关闭 |
+| `panda.perception.proactive` | `true` | 感知主动功能开关；关闭后也不开始运行时复查，含即时风险提示 |
+| `panda.perception.suggestion_seconds` | 900 | 普通事件候选评估最小间隔，不是任务复查或提醒周期 |
+| `panda.perception.routine_per_half_hour` | 2 | 每半小时普通事件候选评估次数；0 仅关闭此来源，不单独关闭任务复查 |
 
 ## 视觉
 

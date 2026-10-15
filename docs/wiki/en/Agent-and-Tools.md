@@ -42,7 +42,7 @@ sequenceDiagram
 | 🧵 **Bukkit access stays on the main thread** | World, inventory and entity access happens on the server thread; model requests, file I/O and asynchronous tools use background workers |
 | ⏳ **Multi-tick tools** | e.g. `look` casts rays over several ticks and the turn waits for it |
 | 🔀 **Controlled parallel calls** | Up to 3 independent reads overlap (configurable from 1–8), with results in call order; writes, deletions and unmarked tools run serially |
-| 💰 **Budgets** | Steps, tool calls, total time and per-result length are capped; when exhausted the model must answer with what it has |
+| 💰 **Budgets** | Step/tool limits force an answer from available evidence; the shared deadline interrupts model waits without another request; text context is checked at each step |
 | 🔁 **Safe retries** | Network retries only re-fetch the model reply and never re-run tools |
 | 🧹 **Stale results dropped** | After logout, timeout, clear, reload or shutdown, old turns never reach the player |
 | 🛡️ **Data is not instructions** | Tool results, server docs and snapshots are explicitly declared as data in the prompt to resist injection |
@@ -59,14 +59,29 @@ panda:
     max_tool_result_chars: 6000 # result budget; full evidence and deletion previews are never truncated
 ```
 
-## 🛠️ All tools (76)
+## Agent runtime
 
-Tools are grouped by skill. **A tool is offered to the model only if an enabled skill lists it under `tools`**; plugin tools appear only when the plugin is installed.
+Multi-step tasks can retain session-local working state: the original player request, objective, 1–8 steps, progress, an AI interpretation of current activity and a remaining recheck allowance. The model decides whether a plan is useful, how to adapt it, what to verify next and whether to speak. The runtime enforces permissions, timing, cancellation and budgets. An activity interpretation is not evidence; a completed plan step does not execute a game action.
+
+The model may schedule a delayed check (`timer`) or wait for changed observations (`state_change`). Change detection covers the compact snapshot, 16-block position sectors, world and existing goal progress. It does not survey the entire inventory, every entity or all plugin data; relevant tools must verify those facts. Defaults: at least 60 seconds before a check, up to 3 automatic follow-up turns per player request; each turn may contain multiple generation steps. No scheduled check or matching change means no continuous model calls.
+
+A new player question takes priority and cancels older background turns and pending checks. Quiet mode, logout, clearing a session, reloads and expiry cancel proactive work. Delivery rechecks permissions, world, the fact snapshot, signal expiry and current activity. Working plans disappear with session expiry or restart; use game memory for durable evidence.
+
+`prompts/runtime.md` is appended while existing custom system prompts remain intact. Proactive turns may use independent reads from enabled skills, update an existing plan and schedule bounded checks. They cannot create new objectives, execute commands or mutate persistent memory. `stay_silent` ends a turn immediately.
+
+See [Agent Runtime](Agent-Runtime.md) for phases, full configuration, cost, examples and troubleshooting.
+
+## 🛠️ All tools (79)
+
+Tools are grouped by skill. Ordinary tools require an enabled skill listing them under `tools`; integration tools also require an active adapter and permissions. The three runtime tools follow `panda.agent.runtime.enabled` and the core `panda` skill, including older custom core skills that omit the new names. Disabling the core skill also disables runtime tools.
 
 ### Always on
 
 | Tool | Purpose |
 |---|---|
+| `runtime_status` | Read the task, steps, state and follow-up budget |
+| `update_plan` | Maintain a plan backed by the complete player request; proactive turns only revise an existing objective |
+| `schedule_follow_up` | Let the model choose a recheck by time or changed observations |
 | `load_skill` | Read a skill's full instructions (progressive disclosure) |
 | `get_player_status` | Full status: inventory summary, armour, offhand, effects, level |
 | `set_assistance` | Switch between quiet and assist mode |
@@ -172,7 +187,7 @@ See [Plugin Integrations](Plugin-Integrations.md).
 
 <div align="center">
 
-⬅️ [💬 Talking to Panda](Talking-to-Panda.md) &nbsp;·&nbsp; [📚 Contents](Home.md) &nbsp;·&nbsp; [🧠 Game Memory](Game-Memory.md) ➡️
+⬅️ [💬 Talking to Panda](Talking-to-Panda.md) &nbsp;·&nbsp; [📚 Contents](Home.md) &nbsp;·&nbsp; [🧭 Agent Runtime](Agent-Runtime.md) ➡️
 
 </div>
 <!-- /nav:bottom -->

@@ -34,7 +34,10 @@ See [Languages](Languages.md).
 | `panda.agent.max_parallel_reads` | 3 | 1–8 | Concurrent independent reads; writes and unmarked tools remain sequential |
 | `panda.agent.turn_timeout_seconds` | 120 | 10–600 | Total time per turn, including all model requests and tools |
 | `panda.agent.max_tool_result_chars` | 6000 | 500–32000 | Tool result budget; oversized memory evidence is rejected, other truncation is labeled |
-| `panda.agent.proactive` | `true` | | Agent decides and words proactive tips; off uses built-in text |
+| `panda.agent.proactive` | `true` | | AI makes the final routine-message decision; disabled or failed turns stay silent |
+| `panda.agent.runtime.enabled` | `true` | | Session plans, activity interpretations and bounded rechecks; off hides the 3 runtime tools |
+| `panda.agent.runtime.follow_up_min_seconds` | 60 | 30–1800 | Minimum model-chosen delay; any single delay is at most 1800 seconds |
+| `panda.agent.runtime.max_follow_ups` | 3 | 0–6 | Automatic follow-up turns per request; each may make multiple model calls, proactive turns cannot refill it, 0 disables task checks |
 | `panda.agent.disabled_skills` | `[]` | | Disabled skills, e.g. `[commands, vision]` |
 
 ## Conversation
@@ -46,10 +49,10 @@ See [Languages](Languages.md).
 | `panda.cooldown` | 5000 | Per-player cooldown (ms) |
 | `panda.cancel_chat_message` | `true` | Hide the chat message that triggered Panda |
 | `panda.history_rounds` | 5 | Full Q&A rounds kept (0–50) |
-| `panda.max_sessions` | 1000 | Sessions kept at once |
-| `panda.session_ttl_seconds` | 1800 | Idle time before a session is cleared |
+| `panda.max_sessions` | 1000 | Session and working-task capacity; the oldest idle session may be evicted when full |
+| `panda.session_ttl_seconds` | 1800 | Idle session expiry; clearing also cancels pending task checks |
 | `panda.max_prompt_chars` | 2000 | Max characters per question |
-| `panda.context_char_budget` | 16000 | Context budget in characters (not exact tokens) |
+| `panda.context_char_budget` | 16000 | Per-step prompt/message/tool-argument character budget; not a token or complete wire-byte limit |
 | `panda.max_output_tokens` | 1000 | Max output tokens per step |
 
 ## Model
@@ -100,9 +103,9 @@ See [Game Memory & Distillation](Game-Memory.md).
 | `panda.perception.entity_radius` | 20 | Entity query radius |
 | `panda.perception.max_entities` | 16 | Entities kept |
 | `panda.perception.max_players` | 128 | Players with memory loaded at once |
-| `panda.perception.proactive` | `true` | Produce proactive tips |
-| `panda.perception.suggestion_seconds` | 900 | Minimum gap between routine tips |
-| `panda.perception.routine_per_half_hour` | 2 | Routine tips per half hour; 0 disables |
+| `panda.perception.proactive` | `true` | Perception proactive switch, including immediate alerts; off also prevents runtime checks |
+| `panda.perception.suggestion_seconds` | 900 | Minimum gap between routine event evaluations; not a task-check or reminder interval |
+| `panda.perception.routine_per_half_hour` | 2 | Routine event evaluations per half hour; 0 disables this source only, not scheduled task checks |
 
 ## Vision
 

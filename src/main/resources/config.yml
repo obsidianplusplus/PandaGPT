@@ -8,8 +8,12 @@ panda:
     max_parallel_reads: 3 # 独立只读工具最多同时等待的数量（1–8）；写入工具仍串行。
     max_tool_calls: 16 # 每次对话最多执行的工具调用数。
     turn_timeout_seconds: 120 # 每次对话的总时长上限，包含全部模型请求与工具执行（例如等待视觉采样）。
-    max_tool_result_chars: 6000 # 单个工具结果交给模型前的截断长度。
-    proactive: true # 主动建议由 Agent 判断是否开口与措辞；关闭后使用内置提示文本。
+    max_tool_result_chars: 6000 # 单个结果字符预算；完整记忆证据与删除预览超限时拒绝截断。
+    proactive: true # 普通主动消息最终由 AI 决定；关闭或模型失败时保持安静。
+    runtime:
+      enabled: true # 会话内任务计划、状态解释与 AI 自主安排的有限复查。
+      follow_up_min_seconds: 60 # AI 复查的最小延迟（30–1800）；不是定时调用模型。
+      max_follow_ups: 3 # 每项请求最多自动复查回合数（0–6），每回合仍可多次调用模型；0 关闭任务复查。
     disabled_skills: [] # 关闭的技能名称，例如 [commands, vision]；技能文件位于 plugins/PandaGPT/skills/。
   trigger_word: 'panda' # 匹配聊天开头的 panda 或 @panda。
   personality: '你是 Minecraft 服务器助手 Panda。用玩家提问的语言简洁回答。根据提供的服务器事实回答；不知道就明确说明。不要声称已经执行任何尚未执行的动作。'
@@ -34,9 +38,9 @@ panda:
     entity_radius: 20
     max_entities: 16
     max_players: 128
-    proactive: true # 只产生本地建议；后台观察从不调用付费模型。
-    suggestion_seconds: 900 # 普通文字建议的最小间隔，不是定时提醒。
-    routine_per_half_hour: 2 # 0 表示不发普通建议；紧急局部风险独立去重。
+    proactive: true # 产生候选事件与即时局部风险提示；几何观察不调用模型，事件评估与任务复查会调用模型。
+    suggestion_seconds: 900 # 普通事件候选评估的最小间隔，不是任务复查或提醒周期。
+    routine_per_half_hour: 2 # 普通事件评估每半小时上限；0 仅关闭此来源，任务复查独立控制，紧急风险独立去重。
   vision:
     enabled: true # 完整 PNG 采样需显式请求；开启感知时可能安排安静的几何观察。
     width: 160

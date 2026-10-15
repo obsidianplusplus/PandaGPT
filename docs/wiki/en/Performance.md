@@ -39,14 +39,19 @@ flowchart LR
 | Resource | Bound |
 |---|---|
 | AI workers / queue | 4 / 32; rejected when full, without collecting context |
+| Runtime plan / pending check | One objective, up to 8 steps and one pending check per session, bounded by `panda.max_sessions` |
+| Proactive turns | One background turn per player; shares conversation workers/queue and yields to that player's new question |
+| Model-scheduled checks | Default 3 turns per request, minimum delay 60 seconds; normal step/tool/deadline limits still apply |
 | Log queue | 256 entries; extra entries are dropped and counted |
 | Place memory I/O | Separate bounded queue; repeated saves per player are merged |
 | Texture cache | 64 MiB decoded pixels + 4096 states + 8192 coordinate variants, LRU |
 | Render queue | Single thread, bounded |
 
+The runtime rotates one pending player check per five eligible ticks, only when background work and the shared budget permit it. More players or high load can delay checks; they are not punctual timers. Undue or unmatched checks do not call the model. Triggered model waits obey the shared turn deadline and receive cancellation.
+
 ## Monitoring
 
-`/pandaadmin status` shows the last 512 ticks' p95, cumulative max, cells visited, block reads, cache hits, shedding ticks, render queue and dropped logs. For whole-server profiling use [spark](https://spark.lucko.me/).
+`/pandaadmin status` shows the last 512 ticks' p95, cumulative max, cells visited, block reads, cache hits, shedding ticks, render queue and dropped logs. `runtime`, `follow_ups` and `proactive_active` report runtime configuration, pending-check count and background turns, rather than player plan contents. For whole-server profiling use [spark](https://spark.lucko.me/).
 
 ## Conservative settings
 

@@ -67,7 +67,7 @@ Limits: up to 64 skills, 16 KiB per file.
 
 | Skill | Purpose | Tools |
 |---|---|---|
-| `panda` | Core behaviour: intent, tool choice, conversation and pending commands (always on) | get_player_status and 4 more |
+| `panda` | Core behaviour: intent, tool choice, conversation and pending commands (always on) | get_player_status and 7 more |
 | `places` | Remember, forget and list places; direction and distance | remember_place and 3 more |
 | `navigation` | Action-bar arrow and private particle guidance; web-map links | guide_to, stop_guidance, map_link |
 | `goals` | Track wanted items or mining preparation | set_goal, clear_goal, goal_status |
@@ -115,6 +115,9 @@ Limits: up to 64 skills, 16 KiB per file.
 |---|---|
 | `prompts/system.md` | System prompt when a player asks something |
 | `prompts/proactive.md` | System prompt for [proactive turns](Proactive-Assistant.md) |
+| `prompts/runtime.md` | Planning, activity and follow-up rules appended to conversation and proactive turns |
+
+When the runtime and core `panda` skill are enabled, the service appends `prompts/runtime.md` after `system` or `proactive`; existing custom files are preserved. Its three tools also support older custom core headers and disappear when the runtime or core skill is disabled. Prompts explain behavior, while code enforces permissions and budgets; editing a prompt cannot bypass authorization. See [Agent Runtime](Agent-Runtime.md).
 
 Template variables:
 
@@ -126,6 +129,8 @@ Template variables:
 | `{{snapshot}}` | Compact player snapshot |
 | `{{memory}}` | Places, goals and notes |
 | `{{knowledge}}` | Overview of server docs (full text is searched) |
+| `{{runtime}}` | Session plan, original request, progress and remaining recheck allowance |
+| `{{activity}}` | Assistance mode, recent activity and existing goal progress |
 | `{{pending}}` | Commands awaiting confirmation |
 | `{{signal}}` | Proactive turns only: the game signal |
 

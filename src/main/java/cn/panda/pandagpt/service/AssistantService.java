@@ -3,11 +3,14 @@ package cn.panda.pandagpt.service;
 import cn.panda.pandagpt.ChatGPTIntegration;
 import cn.panda.pandagpt.actions.ActionController;
 import cn.panda.pandagpt.agent.AgentRunner;
+import cn.panda.pandagpt.agent.AgentRuntime;
 import cn.panda.pandagpt.agent.AgentTool;
 import cn.panda.pandagpt.agent.AgentTurn;
 import cn.panda.pandagpt.agent.PromptLibrary;
 import cn.panda.pandagpt.agent.SkillLibrary;
 import cn.panda.pandagpt.agent.ToolRegistry;
+import cn.panda.pandagpt.agent.ToolResult;
+import cn.panda.pandagpt.agent.tools.RuntimeTools;
 import cn.panda.pandagpt.ai.AiProvider;
 import cn.panda.pandagpt.ai.Message;
 import cn.panda.pandagpt.config.Settings;
@@ -21,7 +24,10 @@ import cn.panda.pandagpt.perception.QuietPolicy;
 import cn.panda.pandagpt.util.FormatUtil;
 import cn.panda.pandagpt.util.PandaLogger;
 import cn.panda.pandagpt.util.PlayerContext;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonParser;
 import java.time.Clock;
+import java.util.ArrayDeque;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -53,19 +59,21 @@ public final class AssistantService implements AutoCloseable {
     /** 一名玩家的对话会话。 */
     private static final class Session {
         final Conversation history;
+        final AgentRuntime runtime;
         long lastAccepted = Long.MIN_VALUE;
         long touched;
         // 工作线程会读取它来判断回合是否已被取消。
         volatile UUID requestId;
         Future<?> task;
 
-        Session(int rounds, long now) {
-            history = new Conversation(rounds);
+        Session(Settings settings, long now) {
+            history = new Conversation(settings.historyRounds());
+            runtime = new AgentRuntime(settings.agent().runtime());
             touched = now;
         }
     }
 
-    /** 主动回合只能使用的只读工具，外加 stay_silent。 */
+    /** Legacy read-only tools; independent reads and runtime controls are also eligible. */
     public static final Set<String> PROACTIVE_TOOLS = Set.of(
             "get_player_status",
             "list_places",
@@ -106,7 +114,16 @@ public final class AssistantService implements AutoCloseable {
     private final ThreadPoolExecutor workers;
     // 按插入顺序排列；提问时把会话移到末尾，因此表头始终是最久未提问的会话。
     private final Map<UUID, Session> sessions = new LinkedHashMap<>();
-    private final Set<UUID> proactiveInFlight = new HashSet<>();
+
+    private static final class Background {
+        volatile boolean cancelled;
+        Future<?> task;
+    }
+
+    private final Map<UUID, Background> proactiveInFlight = new LinkedHashMap<>();
+    private final ArrayDeque<UUID> followUps = new ArrayDeque<>();
+    private final Set<UUID> followUpSet = new HashSet<>();
+    private long ticks;
     private final Clock clock;
     // 每个回合附带的精简玩家状态；测试中可替换，避免依赖服务器注册表。
     private final Function<Player, String> snapshot;
@@ -160,7 +177,8 @@ public final class AssistantService implements AutoCloseable {
                 settings.agent(),
                 skills,
                 this::onMain,
-                id -> plugin.getServer().getPlayer(id));
+                id -> plugin.getServer().getPlayer(id),
+                settings.contextBudget());
         workers = new ThreadPoolExecutor(
                 settings.workers(),
                 settings.workers(),
@@ -212,6 +230,7 @@ public final class AssistantService implements AutoCloseable {
             tell(player, "service.cooldown");
             return;
         }
+        cancelProactive(id);
         String language = Messages.active().language(player);
         String system;
         Map<String, AgentTool> available;
@@ -223,7 +242,7 @@ public final class AssistantService implements AutoCloseable {
                         "\n" + plugin.memory().gameContext(id, player.getWorld().getUID(), question, now),
                         String::concat);
             }
-            system = prompts.render("system", context);
+            system = render("system", context);
             available = toolsFor(player, AgentTurn.Kind.CONVERSATION);
         } catch (RuntimeException e) {
             logger.event(id, "context_error type=" + e.getClass().getSimpleName());
@@ -275,9 +294,11 @@ public final class AssistantService implements AutoCloseable {
         Session session = sessions.remove(id);
         if (session == null) {
             if (sessions.size() >= settings.maxSessions()) {
-                var iterator = sessions.values().iterator();
+                var iterator = sessions.entrySet().iterator();
                 while (iterator.hasNext()) {
-                    if (iterator.next().requestId == null) {
+                    var entry = iterator.next();
+                    if (entry.getValue().requestId == null) {
+                        cancelProactive(entry.getKey());
                         iterator.remove();
                         break;
                     }
@@ -286,7 +307,7 @@ public final class AssistantService implements AutoCloseable {
                     return null;
                 }
             }
-            session = new Session(settings.historyRounds(), now);
+            session = new Session(settings, now);
         }
         session.touched = now;
         sessions.put(id, session);
@@ -339,6 +360,9 @@ public final class AssistantService implements AutoCloseable {
         }
         if (turn.forgetConversation()) {
             expected.history.clear();
+            cancelProactive(id);
+            // Forgetting chat also drops temporary runtime working state.
+            expected.runtime.clear();
         } else {
             expected.history.add(question, remembered);
         }
@@ -350,81 +374,213 @@ public final class AssistantService implements AutoCloseable {
                         + turn.toolsUsed().size());
     }
 
-    /**
-     * 感知模块释放了一条普通建议：交给主动式 Agent 决定是否开口、说什么。
-     *
-     * <p>Agent 关闭、未配置密钥、玩家正在提问或请求失败时，退回该建议的内置文本。
-     */
+    /** A signal is evidence for model evaluation, never a preselected message. Failures stay quiet. */
     public void proactive(Player player, QuietPolicy.Candidate candidate) {
+        startProactive(
+                player,
+                candidate.kind() + ": " + candidate.text().render("en_US"),
+                candidate.expiresAt(),
+                () -> plugin.perception() == null || plugin.perception().candidateValid(player, candidate));
+    }
+
+    private boolean proactiveAllowed(Player player) {
+        return player.isOnline()
+                && player.hasPermission("pandagpt.use")
+                && !player.isDead()
+                && (plugin.perception() == null || plugin.perception().proactiveAllowed(player));
+    }
+
+    private boolean occupied(Player player) {
+        return busy(player.getUniqueId())
+                || actions.hasPending(player.getUniqueId())
+                || (plugin.perception() != null && plugin.perception().occupied(player));
+    }
+
+    private void startProactive(Player player, String signal, long expiresAt, BooleanSupplier valid) {
         UUID id = player.getUniqueId();
         if (closed
                 || !settings.agent().proactive()
                 || !configured()
-                || busy(id)
-                || proactiveInFlight.contains(id)
-                || workers.getQueue().remainingCapacity() == 0) {
-            fallback(player, candidate);
-            return;
-        }
+                || !proactiveAllowed(player)
+                || occupied(player)
+                || proactiveInFlight.containsKey(id)
+                || clock.millis() >= expiresAt
+                || workers.getQueue().remainingCapacity() == 0
+                || !valid.getAsBoolean()) return;
+        expire();
+        Session session = session(id, clock.millis());
+        if (session == null) return;
         String language = Messages.active().language(player);
-        String signal = candidate.kind() + ": " + candidate.text().render("en_US");
         String system;
+        String baseline;
         Map<String, AgentTool> available;
+        List<Message> messages;
         try {
+            baseline = runtimeFingerprint(player);
             Map<String, String> variables = variables(player, language);
             variables.put("signal", signal);
-            system = prompts.render("proactive", variables);
+            if (plugin.memory() != null && plugin.memory().settings().enabled()) {
+                variables.merge(
+                        "memory",
+                        "\n"
+                                + plugin.memory()
+                                        .gameContext(
+                                                id,
+                                                player.getWorld().getUID(),
+                                                session.runtime.objective() + " " + signal,
+                                                clock.millis()),
+                        String::concat);
+            }
+            system = render("proactive", variables);
+            String event = "[Runtime observation, not a new player request; verify before speaking] " + signal;
+            int budget = settings.contextBudget() - system.length();
+            if (event.length() > budget) return;
+            messages = session.history.snapshot(event, budget);
             available = toolsFor(player, AgentTurn.Kind.PROACTIVE);
         } catch (RuntimeException e) {
-            fallback(player, candidate);
+            logger.event(id, "proactive_skipped reason=context");
             return;
         }
         AgentTurn turn = new AgentTurn(id, AgentTurn.Kind.PROACTIVE);
-        var plan = new AgentRunner.Plan(
-                turn,
-                language,
-                system,
-                List.of(Message.user("[Game signal, not a player message] " + signal)),
-                available,
-                () -> closed);
-        proactiveInFlight.add(id);
+        Background job = new Background();
+        var plan = new AgentRunner.Plan(turn, language, system, messages, available, () -> closed || job.cancelled);
+        proactiveInFlight.put(id, job);
         try {
-            workers.submit(() -> {
+            job.task = workers.submit(() -> {
                 AgentRunner.Outcome outcome = null;
                 try {
                     outcome = runner.run(plan);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 } catch (Exception e) {
-                    // 主动回合失败时退回内置文本，不打扰玩家。
+                    // Model failure is never converted into a routine canned message.
                 }
                 AgentRunner.Outcome result = outcome;
-                schedule(() -> deliverProactive(id, candidate, turn, result));
+                schedule(() -> {
+                    if (proactiveInFlight.get(id) != job) return;
+                    proactiveInFlight.remove(id);
+                    Player current = plugin.getServer().getPlayer(id);
+                    if (closed
+                            || job.cancelled
+                            || sessions.get(id) != session
+                            || current == null
+                            || !proactiveAllowed(current)
+                            || occupied(current)
+                            || clock.millis() >= expiresAt
+                            || !valid.getAsBoolean()
+                            || !baseline.equals(runtimeFingerprint(current))) {
+                        session.runtime.cancelFollowUp();
+                        return;
+                    }
+                    if (result == null) {
+                        session.runtime.cancelFollowUp();
+                        logger.event(id, "proactive_skipped reason=model_failure");
+                    } else if (turn.silent() || result.text().isBlank()) {
+                        session.runtime.recordDecision("silent");
+                        logger.event(id, "proactive_silent");
+                    } else {
+                        session.runtime.recordDecision(result.text());
+                        current.sendMessage(
+                                Component.text(Lang.text(current, "prefix.suggestion") + " ", NamedTextColor.GRAY)
+                                        .append(FormatUtil.formatChatMessage(result.text())));
+                        logger.event(id, "proactive_delivered");
+                    }
+                });
             });
         } catch (RejectedExecutionException e) {
             proactiveInFlight.remove(id);
-            fallback(player, candidate);
+            job.cancelled = true;
         }
     }
 
-    private void deliverProactive(
-            UUID id, QuietPolicy.Candidate candidate, AgentTurn turn, AgentRunner.Outcome result) {
-        proactiveInFlight.remove(id);
-        Player player = plugin.getServer().getPlayer(id);
-        if (closed || player == null || !player.isOnline()) {
+    public AgentRuntime runtime(UUID id) {
+        Session session = sessions.get(id);
+        return runtimeEnabled() && session != null ? session.runtime : null;
+    }
+
+    public ToolResult scheduleFollowUp(Player player, int delay, AgentRuntime.Trigger trigger, String reason) {
+        AgentRuntime runtime = runtime(player.getUniqueId());
+        if (runtime == null || !settings.agent().proactive() || !proactiveAllowed(player)) {
+            return ToolResult.error("Proactive runtime checks are disabled or the player is in quiet mode.");
+        }
+        try {
+            runtime.schedule(delay, trigger, reason, runtimeFingerprint(player), clock.millis());
+        } catch (IllegalArgumentException e) {
+            return ToolResult.error(e.getMessage());
+        }
+        UUID id = player.getUniqueId();
+        if (followUpSet.add(id)) followUps.addLast(id);
+        return ToolResult.ok(runtime.context());
+    }
+
+    /** One due session per five ticks; local checks do not use a model or survey worlds. */
+    public void tick() {
+        if (closed || ++ticks % 5 != 0 || followUps.isEmpty()) return;
+        UUID id = followUps.removeFirst();
+        followUpSet.remove(id);
+        Session session = sessions.get(id);
+        if (session == null || !session.runtime.waiting()) return;
+        if (session.runtime.expired(clock.millis())) {
+            session.runtime.cancelFollowUp();
             return;
         }
-        if (result == null) {
-            fallback(player, candidate);
-        } else if (!turn.silent() && !result.text().isBlank()) {
-            player.sendMessage(Component.text(Lang.text(player, "prefix.suggestion") + " ", NamedTextColor.GRAY)
-                    .append(FormatUtil.formatChatMessage(result.text())));
-            logger.event(id, "proactive_delivered kind=" + candidate.kind());
+        Player player = plugin.getServer().getPlayer(id);
+        if (player == null || !settings.agent().proactive() || !configured() || !proactiveAllowed(player)) {
+            session.runtime.cancelFollowUp();
+            return;
         }
+        if (session.runtime.due(clock.millis())
+                && !occupied(player)
+                && !proactiveInFlight.containsKey(id)
+                && workers.getQueue().remainingCapacity() > 0) {
+            var wake = session.runtime.take(clock.millis(), runtimeFingerprint(player), false, false);
+            if (wake != null) {
+                startProactive(
+                        player,
+                        "FOLLOW_UP: " + wake.reason(),
+                        clock.millis() + settings.agent().turnTimeoutSeconds() * 1000L,
+                        () -> true);
+            }
+        }
+        if (session.runtime.waiting() && followUpSet.add(id)) followUps.addLast(id);
     }
 
-    private static void fallback(Player player, QuietPolicy.Candidate candidate) {
-        Lang.send(player, Prefix.SUGGESTION, NamedTextColor.GRAY, candidate.text());
+    public void cancelProactive(UUID id) {
+        Background job = proactiveInFlight.remove(id);
+        if (job != null) {
+            job.cancelled = true;
+            if (job.task != null) job.task.cancel(true);
+        }
+        Session session = sessions.get(id);
+        if (session != null) session.runtime.cancelFollowUp();
+        followUps.remove(id);
+        followUpSet.remove(id);
+        workers.purge();
+    }
+
+    private String runtimeFingerprint(Player player) {
+        var facts = JsonParser.parseString(snapshot.apply(player)).getAsJsonObject();
+        facts.remove("facing_yaw");
+        if (facts.has("position") && facts.get("position").isJsonArray()) {
+            JsonArray position = facts.getAsJsonArray("position");
+            JsonArray sectors = new JsonArray();
+            for (var coordinate : position) sectors.add(Math.floorDiv(coordinate.getAsInt(), 16));
+            facts.add("position_sectors_16_blocks", sectors);
+            facts.remove("position");
+        }
+        facts.addProperty("world_id", String.valueOf(player.getWorld().getUID()));
+        if (plugin.perception() != null)
+            facts.addProperty("activity", plugin.perception().runtimeFacts(player));
+        return facts.toString();
+    }
+
+    private boolean runtimeEnabled() {
+        return settings.agent().runtime().enabled() && skills.get("panda") != null;
+    }
+
+    private String render(String name, Map<String, String> variables) {
+        String system = prompts.render(name, variables);
+        return runtimeEnabled() ? system + "\n\n" + prompts.render("runtime", variables) : system;
     }
 
     // 系统提示的变量；在主线程采集，之后只作为不可变文本交给工作线程。
@@ -437,6 +593,9 @@ public final class AssistantService implements AutoCloseable {
         variables.put("language", language);
         variables.put("skills", skills.catalog());
         variables.put("snapshot", snapshot.apply(player));
+        AgentRuntime runtime = runtime(player.getUniqueId());
+        variables.put("runtime", runtime == null ? "Runtime disabled." : runtime.context());
+        variables.put("activity", perception == null ? "Activity state unavailable." : perception.runtimeFacts(player));
         variables.put("memory", perception == null ? "Perception is disabled." : perception.context(player, false));
         variables.put(
                 "knowledge",
@@ -456,8 +615,12 @@ public final class AssistantService implements AutoCloseable {
     // 已启用技能中、该玩家当前可用的工具；主动回合只开放只读工具。
     private Map<String, AgentTool> toolsFor(Player player, AgentTurn.Kind kind) {
         Set<String> enabled = new HashSet<>(skills.enabledTools());
+        if (runtimeEnabled()) enabled.addAll(RuntimeTools.NAMES);
+        else enabled.removeAll(RuntimeTools.NAMES);
         if (kind == AgentTurn.Kind.PROACTIVE) {
-            enabled.retainAll(PROACTIVE_TOOLS);
+            enabled.removeIf(name -> !PROACTIVE_TOOLS.contains(name)
+                    && !RuntimeTools.NAMES.contains(name)
+                    && (tools.get(name) == null || !tools.get(name).independentRead()));
             enabled.add("stay_silent");
         } else {
             enabled.remove("stay_silent");
@@ -529,6 +692,7 @@ public final class AssistantService implements AutoCloseable {
 
     /** 清除会话、取消在途回合与待确认动作。 */
     public void clear(UUID id) {
+        cancelProactive(id);
         Session session = sessions.remove(id);
         if (session != null) {
             session.requestId = null;
@@ -544,6 +708,9 @@ public final class AssistantService implements AutoCloseable {
         for (UUID id : List.copyOf(sessions.keySet())) {
             clear(id);
         }
+        for (UUID id : List.copyOf(proactiveInFlight.keySet())) cancelProactive(id);
+        followUps.clear();
+        followUpSet.clear();
         actions.clear();
     }
 
@@ -568,7 +735,9 @@ public final class AssistantService implements AutoCloseable {
                 + settings.model() + ", configured=" + configured() + ", active=" + workers.getActiveCount()
                 + ", queued=" + workers.getQueue().size() + ", sessions=" + sessions.size() + ", skills="
                 + skills.all().size() + ", tools=" + tools.all().size() + ", actions="
-                + (settings.commandAwareness() && settings.allowExecution());
+                + (settings.commandAwareness() && settings.allowExecution()) + ", runtime="
+                + settings.agent().runtime().enabled()
+                + ", follow_ups=" + followUps.size() + ", proactive_active=" + proactiveInFlight.size();
     }
 
     private static void tell(Player player, String key) {

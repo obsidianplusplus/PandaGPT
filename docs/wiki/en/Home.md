@@ -24,7 +24,7 @@ Paper 26.3 · Java 25 · 15 model providers · 19 plugin integrations · 43 skil
 |---|---|
 | 🆕 **A server owner installing it for the first time** | [Installation](Installation.md) → [Model Providers](Model-Providers.md) → [Configuration](Configuration.md) |
 | 🎮 **Curious what players can do** | [Talking to Panda](Talking-to-Panda.md) → [Creative Features](Creative-Features.md) |
-| 🧠 **Customising the agent** | [Agent & Tools](Agent-and-Tools.md) → [Skills & Prompts](Skills-and-Prompts.md) |
+| 🧠 **Customising the agent** | [Agent & Tools](Agent-and-Tools.md) → [Agent Runtime](Agent-Runtime.md) → [Skills & Prompts](Skills-and-Prompts.md) |
 | 🔌 **Running lots of plugins** | [Plugin Integrations](Plugin-Integrations.md) |
 | 🛡️ **Focused on safety, privacy and performance** | [Command Proposals](Command-Proposals.md) · [Privacy & Security](Privacy-and-Security.md) · [Performance](Performance.md) |
 | 🛠️ **Contributing code** | [Development](Development.md) |
@@ -37,7 +37,8 @@ Paper 26.3 · Java 25 · 15 model providers · 19 plugin integrations · 43 skil
 - 💬 [Talking to Panda](Talking-to-Panda.md): how the zero-command interface works, with lots of examples
 
 ### How it works
-- 🧠 [Agent & Tools](Agent-and-Tools.md): the multi-step tool loop and all 76 tools
+- 🧠 [Agent & Tools](Agent-and-Tools.md): the multi-step tool loop and all 79 tools
+- 🧭 [Agent Runtime](Agent-Runtime.md): model-maintained plans, activity interpretations and bounded checks
 - 🧠 [Game Memory & Distillation](Game-Memory.md): recover the right event, fact, plan or lesson when needed
 - 📜 [Skills & Prompts](Skills-and-Prompts.md): progressively disclosed skills and how to write your own
 - 🔔 [Proactive Assistant](Proactive-Assistant.md): when Panda speaks up unprompted, and why it usually stays quiet
@@ -65,7 +66,7 @@ Paper 26.3 · Java 25 · 15 model providers · 19 plugin integrations · 43 skil
 flowchart LR
     P["🎮 Player<br/>panda what is this?"] --> A["🧠 Agent<br/>system prompt + skill catalog"]
     A -->|load_skill| S["📜 Skills"]
-    A -->|tool calls| T["🛠️ 76 tools<br/>bounded concurrent reads"]
+    A -->|tool calls| T["🛠️ 79 tools<br/>bounded concurrent reads"]
     T --> W["🌍 World / inventory / memory"]
     T --> I["🔌 Plugin APIs"]
     T --> V["👁️ Vision reconstruction"]

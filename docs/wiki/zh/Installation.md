@@ -30,10 +30,10 @@ plugins/PandaGPT/
 ├── config.yml          # 主配置
 ├── knowledge.md        # 服务器资料（规则、玩法、插件说明）
 ├── lang/*.yml          # 12 种语言文件，可直接修改
-├── skills/*.md         # 35 个技能，可修改、新增或关闭
-├── prompts/*.md        # 系统提示词模板
+├── skills/*.md         # 43 个技能，可修改、新增或关闭
+├── prompts/*.md        # system.md、proactive.md、runtime.md
 ├── assets/             # 自动下载的官方纹理（vanilla-26.3.zip）
-├── memory/<UUID>.json  # 每位玩家的地点、目标与笔记
+├── memory/<UUID>.json  # 地点、目标、笔记与游戏记忆（v3）
 └── captures/<UUID>/    # 最近一次视觉采样的图片（可关闭）
 ```
 
@@ -63,7 +63,7 @@ panda:
 /pandaadmin status
 ```
 
-`status` 显示服务商是否已配置、技能与工具数量、队列和视觉状态。完成后，任何玩家在聊天里说 `panda 你好` 即可开始。
+`status` 显示服务商是否已配置、技能与工具数量、队列、运行时与视觉状态。技能和工具的实际可用数量受插件集成、技能开关和权限影响。完成后，任何玩家在聊天里说 `panda 你好` 即可开始。
 
 <a id="textures"></a>
 
@@ -99,10 +99,18 @@ panda:
 | **3.1 / 3.0**（配置 v2） | 自动备份为 `config-v2-backup.yml`；顶层的 `openai:`、`gemini:` 密钥与地址移入 `panda.model_selection.<服务商>` |
 | **2.x 及更早**（配置 v1） | 先备份为 `config-v1-backup.yml`，把 `history_size` 换算为问答轮数，再继续上面的迁移 |
 | 旧的玩家命令 `/panda ...` | 3.0 起已全部移除，玩家直接在聊天中说话即可 |
-| 记忆文件 | 直接沿用，新增字段向后兼容 |
+| 记忆文件 | 读取旧 v1/v2，下一次成功写入升级为 v3；升级后不支持降级到旧格式插件 |
 | `tools/download_vanilla_assets.py` | 3.2 起删除，由插件自动下载取代 |
 
 旧的 Gemini 地址中的 `?key=%s` 会被自动移除，密钥改为放在请求头中发送。
+
+### 智能体运行时的升级行为
+
+升级启动时会补齐新的 `panda.agent.runtime` 默认配置，并在缺少时复制 `prompts/runtime.md`；已有自定义系统提示、主动提示和技能文件不会被覆盖。运行时模板会追加到对话与主动回合；已有自定义核心 `panda` 技能即使未列出三个新工具，也可在运行时启用时使用它们。
+
+默认允许 AI 为玩家的多步请求安排最多 3 个自动复查回合，每个回合可能调用模型多次。若先保留计划而不启用自动复查，设 `panda.agent.runtime.max_follow_ups: 0`；若关闭整个运行时，设 `panda.agent.runtime.enabled: false`。普通 AI 主动功能关闭或模型不可用时保持安静，旧版的内置文案回退已移除；紧急局部风险仍走即时动作栏。
+
+重载或重启会清除临时计划与待复查，不会将旧任务自动恢复。长期记忆仍独立保存；旧 v1/v2 文件首次成功写入后升级为 v3，升级后不要再用只支持旧格式的插件读取。详情见[智能体运行时](Agent-Runtime.md)与[游戏记忆](Game-Memory.md)。
 
 <a id="build"></a>
 

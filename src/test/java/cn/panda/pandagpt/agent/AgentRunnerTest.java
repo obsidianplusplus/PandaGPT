@@ -37,6 +37,7 @@ class AgentRunnerTest {
         Player p = mock(Player.class);
         when(p.getUniqueId()).thenReturn(UUID.randomUUID());
         when(p.isOnline()).thenReturn(true);
+        when(p.hasPermission(anyString())).thenReturn(true);
         return p;
     }
 

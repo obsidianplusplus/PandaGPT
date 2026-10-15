@@ -23,6 +23,7 @@ class SkillLibraryTest {
         var plugin = mock(ChatGPTIntegration.class);
         var registry = new ToolRegistry()
                 .register(AssistantTools.create(plugin))
+                .register(RuntimeTools.create(plugin))
                 .register(PlaceTools.create(plugin))
                 .register(GoalTools.create(plugin))
                 .register(WorldTools.create(plugin))

@@ -90,6 +90,12 @@ While a turn runs, the action bar shows what Panda is doing, e.g. `👀 Looking�
 - ⚠️ Urgent local risks such as drops or lava appear in the action bar immediately, without waiting for the model.
 - 👀 Low-frequency background observation of nearby geometry for later recall; it **never calls the model** and costs nothing.
 
+## Multi-step tasks and follow-ups
+
+Try `panda help me prepare for the Nether; check equipment and supplies and follow up if useful`. The model can keep a plan and choose bounded checks later or after changed observations. It still decides whether new evidence warrants a message. Simple questions need no ongoing plan. Follow-up turns use the model; working plans do not survive restart.
+
+Ask a new question when priorities change; the older background turn and pending check are canceled. Say "don't disturb me" to stop proactive interruptions. "Remind me in ten minutes" still uses the reminder feature. See [Agent Runtime](Agent-Runtime.md).
+
 ## Answer language
 
 Panda answers in the language you asked in; when unclear it uses your client language. The plugin's own messages follow your client language too; see [Languages](Languages.md).

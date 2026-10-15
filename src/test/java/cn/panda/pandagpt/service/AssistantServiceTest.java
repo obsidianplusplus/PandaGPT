@@ -8,6 +8,7 @@ import cn.panda.pandagpt.actions.ActionController;
 import cn.panda.pandagpt.agent.*;
 import cn.panda.pandagpt.agent.tools.AssistantTools;
 import cn.panda.pandagpt.agent.tools.CommandTools;
+import cn.panda.pandagpt.agent.tools.RuntimeTools;
 import cn.panda.pandagpt.ai.*;
 import cn.panda.pandagpt.config.Settings;
 import cn.panda.pandagpt.i18n.Msg;
@@ -117,6 +118,12 @@ class AssistantServiceTest {
 
     private AssistantService service(
             Fixture f, Settings settings, AiProvider provider, ToolRegistry tools, Buttons buttons) throws Exception {
+        return service(f, settings, provider, tools, buttons, Clock.systemUTC());
+    }
+
+    private AssistantService service(
+            Fixture f, Settings settings, AiProvider provider, ToolRegistry tools, Buttons buttons, Clock clock)
+            throws Exception {
         var service = new AssistantService(
                 f.plugin,
                 settings,
@@ -125,7 +132,7 @@ class AssistantServiceTest {
                 PromptLibrary.load(null),
                 SkillLibrary.load(null, Set.of()),
                 tools,
-                Clock.systemUTC(),
+                clock,
                 buttons,
                 p -> "{\"name\":\"" + p.getName() + "\"}");
         when(f.plugin.service()).thenReturn(service);
@@ -359,7 +366,7 @@ class AssistantServiceTest {
     }
 
     @Test
-    void proactiveTurnsSpeakBrieflyStaySilentOrFallBack() throws Exception {
+    void proactiveTurnsSpeakBrieflyOrStaySilentWithoutAnAutomaticFallback() throws Exception {
         Fixture f = fixture();
         var registry = new ToolRegistry();
         var candidate = new QuietPolicy.Candidate(
@@ -399,7 +406,148 @@ class AssistantServiceTest {
         try (var service = service(
                 offline, Settings.load(noKey), request -> fail("must not call"), new ToolRegistry(), new Buttons())) {
             service.proactive(offline.player, candidate);
-            assertTrue(said(offline.player).stream().anyMatch(s -> s.contains("目标材料已齐")));
+            assertTrue(said(offline.player).isEmpty());
+        }
+    }
+
+    private static QuietPolicy.Candidate signal(long expiry) {
+        return new QuietPolicy.Candidate(
+                QuietPolicy.Kind.READY,
+                "ready",
+                Msg.of("suggest.ready"),
+                "IRON_PICKAXE",
+                UUID.randomUUID(),
+                null,
+                expiry,
+                40,
+                false);
+    }
+
+    @Test
+    void anExplicitQuestionPreemptsAnInFlightProactiveModelRequest() throws Exception {
+        Fixture f = fixture();
+        CountDownLatch entered = new CountDownLatch(1), interrupted = new CountDownLatch(1);
+        AiProvider provider = request -> {
+            if (request.messages().getLast().content().startsWith("[Runtime observation")) {
+                entered.countDown();
+                try {
+                    new CountDownLatch(1).await();
+                } catch (InterruptedException e) {
+                    interrupted.countDown();
+                    throw e;
+                }
+                return new AiResponse("stale suggestion");
+            }
+            return new AiResponse("current answer");
+        };
+        try (var service = service(f, settings(Map.of()), provider, new ToolRegistry(), new Buttons())) {
+            service.proactive(f.player, signal(Long.MAX_VALUE));
+            assertTrue(entered.await(3, TimeUnit.SECONDS));
+            service.ask(f.player, "new question");
+            pump(f);
+            assertTrue(interrupted.await(3, TimeUnit.SECONDS));
+            assertTrue(said(f.player).stream().anyMatch(t -> t.contains("current answer")));
+            assertFalse(said(f.player).stream().anyMatch(t -> t.contains("stale suggestion")));
+        }
+    }
+
+    @Test
+    void aChangedWorldOrExpiredSignalDropsTheCompletedProactiveAnswer() throws Exception {
+        for (boolean changeWorld : List.of(true, false)) {
+            Fixture f = fixture();
+            Clock clock = mock(Clock.class);
+            when(clock.millis()).thenReturn(1000L);
+            CountDownLatch entered = new CountDownLatch(1), release = new CountDownLatch(1);
+            AiProvider provider = request -> {
+                entered.countDown();
+                release.await();
+                return new AiResponse("obsolete");
+            };
+            try (var service = service(f, settings(Map.of()), provider, new ToolRegistry(), new Buttons(), clock)) {
+                service.proactive(f.player, signal(2000));
+                assertTrue(entered.await(3, TimeUnit.SECONDS));
+                if (changeWorld) when(f.player.getWorld().getUID()).thenReturn(UUID.randomUUID());
+                else when(clock.millis()).thenReturn(2001L);
+                release.countDown();
+                pump(f);
+                assertTrue(said(f.player).isEmpty());
+            } finally {
+                release.countDown();
+            }
+        }
+    }
+
+    @Test
+    void aFailedProactiveRequestNeverSendsTheCannedCandidate() throws Exception {
+        Fixture f = fixture();
+        try (var service = service(
+                f,
+                settings(Map.of()),
+                request -> {
+                    throw new java.io.IOException("failure");
+                },
+                new ToolRegistry(),
+                new Buttons())) {
+            service.proactive(f.player, signal(Long.MAX_VALUE));
+            pump(f);
+            assertTrue(said(f.player).isEmpty());
+        }
+    }
+
+    @Test
+    void aModelPlanWaitsForChangedFactsThenRechecksWithRecentConversationAndOnlySafeTools() throws Exception {
+        Fixture f = fixture();
+        Clock clock = mock(Clock.class);
+        when(clock.millis()).thenReturn(1000L);
+        var registry = new ToolRegistry();
+        var model = new ScriptedModel(request -> {
+            String last = request.messages().getLast().content();
+            if (last.startsWith("[Runtime observation")) {
+                assertTrue(last.contains("FOLLOW_UP"));
+                assertTrue(request.messages().stream().anyMatch(m -> m.content().equals("帮我准备铁镐")));
+                Set<String> unsafe =
+                        Set.of("propose_command", "remember_game_memory", "forget_game_memory", "set_goal");
+                assertTrue(request.tools().stream()
+                        .noneMatch(t -> unsafe.contains(t.get("name").getAsString())));
+                return new AiResponse("状态变了，先核实材料再继续。");
+            }
+            if (request.messages().size() == 1) {
+                return call(
+                        "update_plan",
+                        "{\"objective\":\"准备铁镐\",\"activity\":\"preparing\","
+                                + "\"request_evidence\":\"帮我准备铁镐\",\"steps\":[{\"description\":\"核对材料\",\"status\":\"in_progress\"}]}");
+            }
+            if (request.messages().getLast().answers().name().equals("update_plan")) {
+                return call(
+                        "schedule_follow_up",
+                        "{\"delay_seconds\":30,\"trigger\":\"state_change\",\"reason\":\"核对准备进展\"}");
+            }
+            return new AiResponse("先准备材料，有变化再检查。");
+        });
+        try (var service = service(
+                f,
+                settings(Map.of("panda.agent.runtime.follow_up_min_seconds", 30)),
+                model,
+                registry,
+                new Buttons(),
+                clock)) {
+            registry.register(RuntimeTools.create(f.plugin))
+                    .register(AssistantTools.create(f.plugin))
+                    .register(CommandTools.create(f.plugin));
+            service.ask(f.player, "帮我准备铁镐");
+            pump(f);
+            assertEquals(3, model.requests.size());
+            assertTrue(service.runtime(f.player.getUniqueId()).waiting());
+            when(clock.millis()).thenReturn(32000L);
+            for (int i = 0; i < 5; i++) service.tick();
+            pump(f);
+            assertEquals(3, model.requests.size(), "Unchanged facts cause no model request.");
+            when(f.player.getWorld().getUID()).thenReturn(UUID.randomUUID());
+            for (int i = 0; i < 5; i++) service.tick();
+            pump(f);
+            assertEquals(4, model.requests.size());
+            assertFalse(service.runtime(f.player.getUniqueId()).waiting());
+            assertTrue(said(f.player).stream().anyMatch(t -> t.contains("状态变了")));
         }
     }
 }

@@ -47,8 +47,9 @@ The plugin is downloading official textures in the background (see the console),
 
 - A turn may call the model several times (8 steps max by default); lower `panda.agent.max_steps`;
 - Skills are progressively disclosed, so only the catalog is in the system prompt;
-- Background observation never calls the model; proactive tips are rate-limited and can be turned off (`panda.agent.proactive: false`);
-- Choose cheaper models such as DeepSeek, Qwen, GLM, or any mini / flash tier.
+- Geometry observation and unmatched local checks do not call the model; game-event evaluations, scheduled follow-up turns and semantic memory distillation do;
+- Automatic task checks default to 3 turns per request, each potentially making multiple generation steps. Set `panda.agent.runtime.max_follow_ups: 0` to disable task checks, or `panda.agent.proactive: false` to also disable routine AI proactive messages;
+- Compare the provider's current pricing with actual usage; a turn-count limit is not a monetary cap.
 
 </details>
 
@@ -84,6 +85,27 @@ Yes. Tell Panda "don't disturb me"; "you can remind me again" turns them back on
 <summary><b>A reload failed</b></summary>
 
 The old service keeps running, and chat and console explain which setting is wrong (out of range, non-HTTPS URL, and so on). Fix it and `/pandaadmin reload` again.
+
+</details>
+
+<details>
+<summary><b>Why did AI create a plan without following up later?</b></summary>
+
+A plan is not a scheduled check. The model must call `schedule_follow_up`, with a default minimum delay of 60 seconds. `state_change` also needs a current snapshot different from the scheduling snapshot. New questions, quiet mode, logout, session expiry, reload, an exhausted allowance or invalid conditions can cancel checks; AI may also choose silence. Use reminders for punctual alerts. See [runtime troubleshooting](Agent-Runtime.md#troubleshooting-missing-follow-ups).
+
+</details>
+
+<details>
+<summary><b>Are plans permanent, executable or a replacement for player confirmation?</b></summary>
+
+No. Plans are UUID-scoped session working state, not written to persistent memory, and do not resume after reload or restart. Proactive turns query game data and maintain temporary state for an existing task; they cannot execute commands or forget persistent memories. Explicitly use game memory to save a plan for later. Command execution and deletion retain their confirmation rules.
+
+</details>
+
+<details>
+<summary><b>How do I keep plans without automatic follow-up cost?</b></summary>
+
+Set `panda.agent.runtime.max_follow_ups: 0` to keep planning tools while stopping automatic task checks. Routine event evaluations and semantic distillation are independent; also review `panda.agent.proactive` and `panda.memory.distillation` if you want those off. `routine_per_half_hour: 0` only disables routine game-event evaluations, not task checks. See [configuration and cost](Agent-Runtime.md#configuration-and-cost).
 
 </details>
 

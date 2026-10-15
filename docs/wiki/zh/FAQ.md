@@ -47,8 +47,9 @@
 
 - 一个回合可能请求模型多次（默认最多 8 步），可以降低 `panda.agent.max_steps`；
 - 技能采用渐进式披露，系统提示只放目录；
-- 后台观察不调用模型；主动建议有严格的频率上限，并且可以关闭（`panda.agent.proactive: false`）；
-- 选择 DeepSeek、通义千问、GLM 等低价模型，或各家的 mini / flash 系列。
+- 后台几何观察和未命中的本地复查不调用模型；事件评估、AI 安排的复查回合与语义记忆蒸馏会调用模型；
+- 自动复查默认每项请求最多 3 个回合，每回合可有多个模型步骤。用 `panda.agent.runtime.max_follow_ups: 0` 关闭任务复查，或 `panda.agent.proactive: false` 同时关闭普通 AI 主动消息；
+- 对照服务商当前定价和实际使用量选择模型；次数限制不等于金额上限。
 
 </details>
 
@@ -84,6 +85,27 @@
 <summary><b>重载失败了怎么办？</b></summary>
 
 重载失败时旧服务继续运行，聊天与控制台会说明具体哪一项配置有问题（例如超出范围、地址不是 HTTPS）。修正后再次 `/pandaadmin reload`。
+
+</details>
+
+<details>
+<summary><b>AI 说有计划，但为什么没有稍后提醒？</b></summary>
+
+建立计划不代表安排复查。AI 需要调用 `schedule_follow_up`，最小延迟默认 60 秒；`state_change` 还要求当前观察快照与安排时不同。新问题、安静模式、离线、会话过期、重载、预算用尽或条件失效都可能取消复查，AI 也可能最终选择安静。需要准点提醒时使用提醒功能。见[运行时排障](Agent-Runtime.md#检查为什么没有继续跟进)。
+
+</details>
+
+<details>
+<summary><b>运行时计划会永久保存、自动执行或代替玩家确认吗？</b></summary>
+
+不会。计划是按 UUID 隔离的会话工作状态，不写入长期记忆文件，重载或重启后不恢复。主动回合只查询游戏数据并维护既有任务的临时状态，不能执行命令或遗忘长期记忆。要长期保存计划，明确请求使用游戏记忆；命令与遗忘各自保留玩家确认流程。
+
+</details>
+
+<details>
+<summary><b>如何保留聊天计划，但不产生自动跟进费用？</b></summary>
+
+设 `panda.agent.runtime.max_follow_ups: 0` 可保留计划工具、停止自动任务复查。事件触发的普通 AI 建议和语义记忆蒸馏是独立功能；若还要关闭它们，分别检查 `panda.agent.proactive` 和 `panda.memory.distillation`。`routine_per_half_hour: 0` 仅关闭普通事件评估，不单独关闭任务复查。见[配置与费用](Agent-Runtime.md#配置与费用)。
 
 </details>
 

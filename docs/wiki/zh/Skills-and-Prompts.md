@@ -67,7 +67,7 @@ requires: essentials
 
 | 技能 | 用途 | 工具 |
 |---|---|---|
-| `panda` | 核心行为：判断意图、选择工具、管理对话与待确认命令（常驻） | get_player_status 等 5 个 |
+| `panda` | 核心行为：判断意图、选择工具、管理对话与待确认命令（常驻） | get_player_status 等 8 个 |
 | `places` | 记住、忘记、列出地点，告诉玩家方向与距离 | remember_place 等 4 个 |
 | `navigation` | 动作栏箭头与私有粒子路线导航，网页地图链接 | guide_to, stop_guidance, map_link |
 | `goals` | 跟踪想获得的物品或采矿准备 | set_goal, clear_goal, goal_status |
@@ -115,6 +115,9 @@ requires: essentials
 |---|---|
 | `prompts/system.md` | 玩家提问时的系统提示 |
 | `prompts/proactive.md` | [主动回合](Proactive-Assistant.md) 的系统提示 |
+| `prompts/runtime.md` | 追加到对话与主动回合的任务、状态与复查规则 |
+
+运行时启用且核心 `panda` 技能有效时，服务会把 `prompts/runtime.md` 追加到 `system` 或 `proactive` 模板之后；已有自定义文件不会被替换。三个运行时工具兼容旧的自定义核心技能头部，关闭运行时或核心技能时隐藏。模板负责解释使用方法，工具权限和预算仍由代码检查，修改提示词不能跳过授权。详见[智能体运行时](Agent-Runtime.md)。
 
 模板变量：
 
@@ -126,6 +129,8 @@ requires: essentials
 | `{{snapshot}}` | 精简的玩家快照 |
 | `{{memory}}` | 地点记忆、目标与笔记 |
 | `{{knowledge}}` | 服务器资料的简介（全文需要检索） |
+| `{{runtime}}` | 会话内计划、原始请求、进度与剩余复查预算 |
+| `{{activity}}` | 当前辅助模式、近期忙碌和已有目标进度 |
 | `{{pending}}` | 待确认的命令 |
 | `{{signal}}` | 仅主动回合：触发的游戏信号 |
 

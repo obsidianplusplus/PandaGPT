@@ -8,6 +8,7 @@ import cn.panda.pandagpt.ai.ToolCall;
 import cn.panda.pandagpt.config.AgentSettings;
 import cn.panda.pandagpt.i18n.Lang;
 import cn.panda.pandagpt.i18n.Localized;
+import cn.panda.pandagpt.i18n.LocalizedIOException;
 import cn.panda.pandagpt.util.FormatUtil;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
@@ -19,6 +20,7 @@ import java.util.UUID;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BooleanSupplier;
@@ -69,6 +71,7 @@ public final class AgentRunner {
     private final SkillLibrary skills;
     private final MainThread main;
     private final Function<UUID, Player> players;
+    private final int contextBudget;
 
     public AgentRunner(
             AiProvider provider,
@@ -76,11 +79,22 @@ public final class AgentRunner {
             SkillLibrary skills,
             MainThread main,
             Function<UUID, Player> players) {
+        this(provider, settings, skills, main, players, 128000);
+    }
+
+    public AgentRunner(
+            AiProvider provider,
+            AgentSettings settings,
+            SkillLibrary skills,
+            MainThread main,
+            Function<UUID, Player> players,
+            int contextBudget) {
         this.provider = provider;
         this.settings = settings;
         this.skills = skills;
         this.main = main;
         this.players = players;
+        this.contextBudget = contextBudget;
     }
 
     public Outcome run(Plan plan) throws Exception {
@@ -94,15 +108,22 @@ public final class AgentRunner {
             if (plan.cancelled().getAsBoolean()) {
                 throw new CancellationException();
             }
+            if (System.nanoTime() >= deadline) throw new TimeoutException("Agent turn deadline exceeded.");
+            if (contextSize(plan.systemPrompt(), messages) > contextBudget) {
+                throw new LocalizedIOException("service.context_budget");
+            }
             // 最后一步或预算耗尽时仍发送工具声明（Gemini 要求历史中的函数调用有对应声明），但禁止再调用。
-            boolean last =
-                    step >= settings.maxSteps() || calls >= settings.maxToolCalls() || System.nanoTime() > deadline;
-            AiResponse response = provider.generate(new AiRequest(plan.systemPrompt(), messages, declarations, last));
+            boolean last = step >= settings.maxSteps() || calls >= settings.maxToolCalls();
+            AiResponse response =
+                    generate(plan, new AiRequest(plan.systemPrompt(), messages, declarations, last), deadline);
             if (response.toolCalls().isEmpty() || last) {
                 return new Outcome(
                         response.text(), step, last && !response.toolCalls().isEmpty());
             }
             messages.add(Message.assistant(response.text(), response.toolCalls(), response.signature()));
+            if (contextSize(plan.systemPrompt(), messages) > contextBudget) {
+                throw new LocalizedIOException("service.context_budget");
+            }
             AiRequest.Image image = null;
             List<ToolCall> batch = response.toolCalls();
             for (int at = 0; at < batch.size(); ) {
@@ -126,7 +147,13 @@ public final class AgentRunner {
                     }
                     for (int i = at; i < end; i++) {
                         ToolResult result = await(plan, pending.get(i - at), deadline);
-                        messages.add(Message.tool(batch.get(i), boundedResult(batch.get(i), result)));
+                        String content = boundedResult(batch.get(i), result);
+                        if (contextSize(plan.systemPrompt(), messages) + content.length() + 256 > contextBudget) {
+                            content =
+                                    "ERROR: Result exceeds remaining turn context budget. Narrow the query or answer from available evidence; omitted data is unknown.";
+                        }
+                        messages.add(Message.tool(batch.get(i), content));
+                        if (plan.turn().silent()) return new Outcome("", step, false);
                         if (result.image() != null) image = result.image();
                     }
                 } finally {
@@ -144,6 +171,43 @@ public final class AgentRunner {
                         image));
             }
         }
+    }
+
+    /** Interrupt the provider when the shared deadline or player cancellation wins, including during HTTP waits. */
+    private AiResponse generate(Plan plan, AiRequest request, long deadline) throws Exception {
+        FutureTask<AiResponse> task = new FutureTask<>(() -> provider.generate(request));
+        Thread.ofVirtual().name("pandagpt-model").start(task);
+        try {
+            while (true) {
+                if (plan.cancelled().getAsBoolean()) throw new CancellationException();
+                long remaining = deadline - System.nanoTime();
+                if (remaining <= 0) throw new TimeoutException("Agent turn deadline exceeded.");
+                try {
+                    AiResponse response =
+                            task.get(Math.min(remaining, TimeUnit.MILLISECONDS.toNanos(100)), TimeUnit.NANOSECONDS);
+                    if (plan.cancelled().getAsBoolean()) throw new CancellationException();
+                    if (System.nanoTime() >= deadline) throw new TimeoutException("Agent turn deadline exceeded.");
+                    return response;
+                } catch (TimeoutException e) {
+                    if (System.nanoTime() >= deadline) throw e;
+                }
+            }
+        } catch (ExecutionException e) {
+            if (e.getCause() instanceof Exception cause) throw cause;
+            throw new IllegalStateException("Model request failed.");
+        } finally {
+            if (!task.isDone()) task.cancel(true);
+        }
+    }
+
+    private static long contextSize(String system, List<Message> messages) {
+        long size = system.length();
+        for (Message message : messages) {
+            size += message.content().length();
+            for (ToolCall call : message.toolCalls())
+                size += call.name().length() + call.arguments().length();
+        }
+        return size;
     }
 
     private String boundedResult(ToolCall call, ToolResult result) {
@@ -185,7 +249,10 @@ public final class AgentRunner {
         try {
             return main.submit(() -> {
                 Player player = players.apply(plan.turn().player());
-                if (player == null || !player.isOnline() || plan.cancelled().getAsBoolean()) {
+                if (player == null
+                        || !player.isOnline()
+                        || !player.hasPermission("pandagpt.use")
+                        || plan.cancelled().getAsBoolean()) {
                     return CompletableFuture.failedFuture(new CancellationException());
                 }
                 if (System.nanoTime() >= deadline) {

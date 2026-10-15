@@ -24,7 +24,7 @@ Paper 26.3 · Java 25 · 15 家模型服务商 · 19 个插件集成 · 43 个�
 |---|---|
 | 🆕 **第一次安装的服主** | [安装与升级](Installation.md) → [模型服务商](Model-Providers.md) → [配置参考](Configuration.md) |
 | 🎮 **想知道玩家能做什么** | [和 Panda 对话](Talking-to-Panda.md) → [创意功能](Creative-Features.md) |
-| 🧠 **想定制 Agent 行为** | [Agent 与工具](Agent-and-Tools.md) → [技能与提示词](Skills-and-Prompts.md) |
+| 🧠 **想定制 Agent 行为** | [Agent 与工具](Agent-and-Tools.md) → [智能体运行时](Agent-Runtime.md) → [技能与提示词](Skills-and-Prompts.md) |
 | 🔌 **服务器装了很多插件** | [插件集成](Plugin-Integrations.md) |
 | 🛡️ **关心安全、隐私与性能** | [命令提案](Command-Proposals.md) · [安全与隐私](Privacy-and-Security.md) · [性能](Performance.md) |
 | 🛠️ **想参与开发** | [开发指南](Development.md) |
@@ -37,7 +37,8 @@ Paper 26.3 · Java 25 · 15 家模型服务商 · 19 个插件集成 · 43 个�
 - 💬 [和 Panda 对话](Talking-to-Panda.md)：零命令的交互方式与大量对话示例
 
 ### 核心机制
-- 🧠 [Agent 与工具](Agent-and-Tools.md)：多步工具调用循环与 76 个工具一览
+- 🧠 [Agent 与工具](Agent-and-Tools.md)：多步工具调用循环与 79 个工具一览
+- 🧭 [智能体运行时](Agent-Runtime.md)：AI 维护计划、判断活动状态并安排有限复查
 - 🧠 [游戏记忆与记忆蒸馏](Game-Memory.md)：玩家需要时找回正确的事件、事实、计划与经验
 - 📜 [技能与提示词](Skills-and-Prompts.md)：渐进式披露的技能系统，以及如何编写自己的技能
 - 🔔 [主动式助手](Proactive-Assistant.md)：Panda 什么时候会主动开口，又为什么常常保持安静
@@ -65,7 +66,7 @@ Paper 26.3 · Java 25 · 15 家模型服务商 · 19 个插件集成 · 43 个�
 flowchart LR
     P["🎮 玩家<br/>panda 帮我看看这是什么"] --> A["🧠 Agent<br/>系统提示 + 技能目录"]
     A -->|load_skill| S["📜 技能"]
-    A -->|调用工具| T["🛠️ 76 个工具<br/>独立只读工具受控并发"]
+    A -->|调用工具| T["🛠️ 79 个工具<br/>独立只读工具受控并发"]
     T --> W["🌍 世界 / 背包 / 记忆"]
     T --> I["🔌 外部插件 API"]
     T --> V["👁️ 视觉重建"]

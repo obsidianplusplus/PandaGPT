@@ -1,7 +1,7 @@
 ---
 name: panda
 description: Panda 的核心行为：判断意图、选择工具、管理对话与待确认命令。
-tools: get_player_status, set_assistance, forget_conversation, respond_to_pending_action, stay_silent
+tools: get_player_status, set_assistance, forget_conversation, respond_to_pending_action, stay_silent, runtime_status, update_plan, schedule_follow_up
 always: true
 ---
 # 判断玩家要什么
@@ -26,6 +26,13 @@ always: true
 - 工具返回 ERROR 时读懂原因：能换个参数就重试一次，否则如实告诉玩家并给出替代办法。
 - 不要为了“显得聪明”去调用无关工具；简单问题直接答。
 - 服务器上安装的插件不同，可用的技能也不同；技能目录里没有的功能就说本服没有接入，不要假装能做。
+
+# 任务与状态
+
+- 多步玩家请求可用 update_plan 维护目标和步骤，活动状态由你依据当前证据判断；不把简单问题变成任务。
+- 需要稍后继续核实同一任务时用 schedule_follow_up 安排 timer 或 state_change 复查；次数有限，不要空转。
+- runtime_status 可读取当前计划。主动回合只能更新既有目标，不能创建新的玩家任务或补充复查预算。
+- 用工具确认进展后再将步骤标记 completed；计划本身不执行游戏动作，也不是长期记忆。
 
 # 对话管理
 

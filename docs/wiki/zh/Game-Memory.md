@@ -39,6 +39,8 @@
 
 上面的回答是示意，实际回答必须以工具返回的记录为依据。若找不到匹配记录，Panda 应明确说明没有可靠记忆；若多条记录仍无法确定指代，应先澄清。
 
+临时任务步骤与后台复查属于[智能体运行时](Agent-Runtime.md)，不会自动成为这里的长期记忆证据；游戏记忆中的计划记录也不会自动安排运行时复查。
+
 ## 独立索引与语义蒸馏
 
 | 流程 | 处理内容 | 保留规则 |
@@ -102,7 +104,7 @@ panda:
 
 <div align="center">
 
-⬅️ [🧠 Agent 与工具](Agent-and-Tools.md) &nbsp;·&nbsp; [📚 目录](Home.md) &nbsp;·&nbsp; [📜 技能与提示词](Skills-and-Prompts.md) ➡️
+⬅️ [🧭 智能体运行时](Agent-Runtime.md) &nbsp;·&nbsp; [📚 目录](Home.md) &nbsp;·&nbsp; [📜 技能与提示词](Skills-and-Prompts.md) ➡️
 
 </div>
 <!-- /nav:bottom -->

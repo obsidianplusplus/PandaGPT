@@ -14,6 +14,8 @@ Players talk to `panda`. Server-observed deaths and advancements, explicitly sav
 
 Examples: “remember that I prefer Chinese architecture”, “remember my Nether mining plan”, “why did I die last time?”, “that mining plan is finished”, “organize my memories”, and “forget my architecture preference”. Answers must follow retrieved evidence. A missing match means there is no reliable record; ambiguous references require clarification.
 
+Temporary steps and background checks belong to the [agent runtime](Agent-Runtime.md) and do not automatically become persistent evidence here. A plan recorded in game memory does not automatically schedule a runtime check.
+
 ## Independent indexes and semantic distillation
 
 | Pipeline | Evidence | Rules |
@@ -71,7 +73,7 @@ Independent read-only tools overlap up to `panda.agent.max_parallel_reads` (defa
 
 <div align="center">
 
-⬅️ [🧠 Agent & Tools](Agent-and-Tools.md) &nbsp;·&nbsp; [📚 Contents](Home.md) &nbsp;·&nbsp; [📜 Skills & Prompts](Skills-and-Prompts.md) ➡️
+⬅️ [🧭 Agent Runtime](Agent-Runtime.md) &nbsp;·&nbsp; [📚 Contents](Home.md) &nbsp;·&nbsp; [📜 Skills & Prompts](Skills-and-Prompts.md) ➡️
 
 </div>
 <!-- /nav:bottom -->

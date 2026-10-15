@@ -30,10 +30,10 @@ plugins/PandaGPT/
 ├── config.yml          # main configuration
 ├── knowledge.md        # server documentation (rules, gameplay, plugins)
 ├── lang/*.yml          # 12 language files, editable
-├── skills/*.md         # 35 skills: edit, add or disable
-├── prompts/*.md        # system prompt templates
+├── skills/*.md         # 43 skills: edit, add or disable
+├── prompts/*.md        # system.md, proactive.md, runtime.md
 ├── assets/             # auto-downloaded official textures (vanilla-26.3.zip)
-├── memory/<UUID>.json  # each player's places, goals and notes
+├── memory/<UUID>.json  # places, goals, notes and game memory (v3)
 └── captures/<UUID>/    # latest vision capture (optional)
 ```
 
@@ -99,10 +99,18 @@ Only entries named `vanilla-<version>.zip` are downloaded; your own packs are ne
 | **3.1 / 3.0** (config v2) | Backed up to `config-v2-backup.yml`; top-level `openai:` and `gemini:` keys and URLs move into `panda.model_selection.<provider>` |
 | **2.x and older** (config v1) | Backed up to `config-v1-backup.yml`; `history_size` becomes conversation rounds; then the step above runs |
 | Old `/panda ...` player commands | Removed since 3.0; players simply talk in chat |
-| Memory files | Kept as-is; new fields are backward compatible |
+| Memory files | Read legacy v1/v2, then upgrade to v3 on the next successful write; do not downgrade to a legacy-format plugin |
 | `tools/download_vanilla_assets.py` | Removed in 3.2; the plugin downloads textures itself |
 
 A legacy Gemini URL's `?key=%s` is stripped automatically; the key is now sent in a request header.
+
+### Runtime upgrade behavior
+
+On startup, upgrading fills missing `panda.agent.runtime` defaults and copies `prompts/runtime.md` if absent. Existing custom system/proactive prompts and skill files are preserved. The runtime template is appended to conversation and proactive turns. An older custom core `panda` skill can use the three runtime tools when enabled even if its header omits their names.
+
+Defaults let AI schedule up to 3 automatic follow-up turns for a multi-step request; each turn can make multiple model calls. To keep plans without automatic checks, set `panda.agent.runtime.max_follow_ups: 0`; to disable the runtime, set `panda.agent.runtime.enabled: false`. Disabled or unavailable routine AI proactive turns now stay silent instead of sending canned fallback text. Immediate local-risk alerts still use the action bar.
+
+Reloads and restarts clear working plans and pending checks rather than restoring tasks automatically. Persistent memory remains separate: legacy v1/v2 files become v3 on the next successful write; do not downgrade upgraded data to a plugin supporting only older formats. See [Agent Runtime](Agent-Runtime.md) and [Game Memory](Game-Memory.md).
 
 <a id="build"></a>
 

@@ -19,7 +19,7 @@ import java.util.regex.Pattern;
  */
 public final class PromptLibrary {
     /** 内置模板。 */
-    public static final List<String> BUILT_IN = List.of("system", "proactive");
+    public static final List<String> BUILT_IN = List.of("system", "proactive", "runtime");
 
     private static final Pattern VARIABLE = Pattern.compile("\\{\\{([a-z_]+)}}");
     private static final int MAX_BYTES = 32768;

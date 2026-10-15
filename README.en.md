@@ -41,7 +41,7 @@ Players have no commands at all. Start a chat message with `panda`, talk like yo
 <td width="33%" valign="top">
 
 ### 🧠 A real agent
-A multi-step, parallel tool-calling loop with 76 tools and 43 on-demand skills. It decides whether to look, search or ask first.
+A multi-step, parallel tool-calling loop with 79 tools and 43 on-demand skills. It decides whether to look, search or ask first. A session runtime lets the model maintain a plan, interpret current activity and schedule bounded rechecks by time or changed state.
 
 </td>
 <td width="33%" valign="top">
@@ -159,6 +159,7 @@ Models without image input work too: with `vision` off, vision results reach the
 
 | | Feature | Try saying |
 |:---:|---|---|
+| 🧭 | **Task plans and bounded follow-ups** | "Help me prepare for the Nether; follow up if useful" · "Leave that for now and look here" |
 | 🧠 | **Game memory & distillation** | "why did I die last time?" · "remember this lesson" · "organize my memories" |
 | 📍 | **Place memory & guidance** | "remember this as home" · "take me home" |
 | 👁️ | **Vision & object pointing** | "what's in front of me?" · "how do I use that furnace on the left?" |
@@ -193,7 +194,7 @@ Native adapters now cover NPCs, shop trading sessions, quest stages, islands, cu
 flowchart LR
     P["🎮 Player talks"] --> A["🧠 Agent<br/>system prompt + skill catalog"]
     A -->|load_skill| S["📜 43 skills"]
-    A -->|tool calls| T["🛠️ 76 tools<br/>on the main thread"]
+    A -->|tool calls| T["🛠️ 79 tools<br/>bounded concurrent reads"]
     T --> W["🌍 World · inventory · memory"]
     T --> I["🔌 Plugin APIs"]
     T --> V["👁️ Vision"]
@@ -201,8 +202,9 @@ flowchart LR
     A --> R["💬 Answer + confirm buttons"]
 ```
 
+- **The task runtime** lets AI choose a plan, recheck conditions and routine proactive messages. Defaults allow 3 automatic follow-up turns per request, each potentially using multiple model calls. Working plans do not survive restart. 📖 [Agent Runtime](docs/wiki/en/Agent-Runtime.md)
 - **Skills** are Markdown files you can edit, add or disable; only the catalog sits in the system prompt and full text loads on demand. 📖 [Skills & Prompts](docs/wiki/en/Skills-and-Prompts.md)
-- **Every tool runs on the main thread** while AI requests run on workers, with a shared 2 ms per-tick budget that backs off under load. 📖 [Performance](docs/wiki/en/Performance.md)
+- **Bukkit access stays on the main thread**; model requests, file I/O and asynchronous waits use background workers. World sampling shares a default 2 ms soft budget per tick and backs off under load. 📖 [Performance](docs/wiki/en/Performance.md)
 - **Commands are never executed automatically**; they can only be proposed and confirmed by the player. 📖 [Command Proposals](docs/wiki/en/Command-Proposals.md)
 
 <div align="center">
@@ -229,6 +231,7 @@ flowchart LR
 
 **How it works**
 - 🧠 [Agent & Tools](docs/wiki/en/Agent-and-Tools.md)
+- 🧭 [Agent Runtime](docs/wiki/en/Agent-Runtime.md)
 - 🧠 [Game Memory & Distillation](docs/wiki/en/Game-Memory.md)
 - 📜 [Skills & Prompts](docs/wiki/en/Skills-and-Prompts.md)
 - 🔔 [Proactive Assistant](docs/wiki/en/Proactive-Assistant.md)

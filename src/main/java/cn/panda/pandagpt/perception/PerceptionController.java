@@ -10,6 +10,7 @@ import cn.panda.pandagpt.util.FormatUtil;
 import cn.panda.pandagpt.vision.BlockRaycaster;
 import cn.panda.pandagpt.vision.Camera;
 import cn.panda.pandagpt.vision.VisionController;
+import com.google.gson.Gson;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -57,6 +58,7 @@ public final class PerceptionController implements AutoCloseable {
         }
     }
 
+    private static final Gson GSON = new Gson();
     private static final int TICK_INTERVAL = 5;
     private static final long BUSY_MILLIS = 5000;
     private static final long ROUTINE_TTL_MILLIS = 20000;
@@ -188,7 +190,7 @@ public final class PerceptionController implements AutoCloseable {
                     // 紧急风险需要立即显示，来不及等模型回答。
                     player.sendActionBar(Component.text(Lang.text(player, candidate.text()), NamedTextColor.YELLOW));
                 } else {
-                    // 普通建议交给主动式 Agent 决定是否开口、说什么；不可用时退回内置文本。
+                    // 普通信号只提交证据，由 AI 最终决定是否开口；失败时保持安静。
                     plugin.service().proactive(player, candidate);
                 }
             }
@@ -789,6 +791,7 @@ public final class PerceptionController implements AutoCloseable {
         }
         if (quiet) {
             vision.cancel(player.getUniqueId());
+            plugin.service().cancelProactive(player.getUniqueId());
         }
         persist(player, s);
         return Msg.of(quiet ? "intent.quiet" : "intent.assist");
@@ -934,6 +937,45 @@ public final class PerceptionController implements AutoCloseable {
         if (s != null) {
             offer(player, s, QuietPolicy.Kind.DEATH, "death:" + now, signal, now, null, 90);
         }
+    }
+
+    /** Cheap activity facts: no extra world or entity survey. */
+    public String runtimeFacts(Player player) {
+        State s = states.get(player.getUniqueId());
+        if (s == null || !s.loaded) return "Activity state not loaded.";
+        return GSON.toJson(Map.of(
+                "assistance",
+                s.mode.id,
+                "recent_damage_or_building",
+                clock.millis() < s.busyUntil,
+                "goal",
+                s.goal,
+                "quantity",
+                s.quantity,
+                "goal_progress",
+                s.progress == null ? "unknown" : s.progress.detail().render("en_US"),
+                "ingredients_ready",
+                s.progress != null && s.progress.ingredientsReady()));
+    }
+
+    public boolean proactiveAllowed(Player player) {
+        State s = states.get(player.getUniqueId());
+        return !closed
+                && settings.enabled()
+                && settings.proactive()
+                && s != null
+                && s.loaded
+                && s.mode == AssistMode.ASSIST;
+    }
+
+    public boolean occupied(Player player) {
+        State s = states.get(player.getUniqueId());
+        return s != null && clock.millis() < s.busyUntil;
+    }
+
+    public boolean candidateValid(Player player, QuietPolicy.Candidate candidate) {
+        State s = states.get(player.getUniqueId());
+        return proactiveAllowed(player) && s != null && valid(player, s, candidate, clock.millis());
     }
 
     /** 玩家受伤、放置或破坏方块后，普通建议推迟 5 秒。 */
