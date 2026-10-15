@@ -25,7 +25,6 @@ PandaGPT hooks into popular plugins as **soft dependencies**: each plugin you in
 | 🕵️ **CoreProtect** | `block-history` | Who recently placed or broke a block (needs `pandagpt.blockhistory`) | "Who broke my chest?" |
 | ⚔️ **mcMMO** | `mcmmo` | Skill levels, XP to next level, power level | "How far am I from the next Excavation level?" |
 | ✨ **AuraSkills** | `auraskills` | Skill levels, stats, mana | "Which stat should I level?" |
-
 | 🧑 **Citizens** | `citizens` | Visible nearby NPC names, IDs, positions and distances, respecting line of sight and PlayerFilter | "Which NPC is nearby?" |
 | 🛒 **Shopkeepers** | `shopkeepers` | Visible nearby entity shops; actual offers and enchantments in the caller's active trading UI | "How much is this shop's Mending book?" |
 | 📜 **Quests (PikaMug)** | `quests` | Caller-only loaded active quests, stages and native objective counters | "What stage is my quest on?" |

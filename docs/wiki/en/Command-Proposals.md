@@ -26,7 +26,7 @@ flowchart LR
     C -->|fail| X["Refused, with a reason"]
     C -->|pass| D["One-time buttons shown"]
     D -->|Confirm clicked| E["Runs as the player"]
-    D -->|Player replies "do it"| F["Agent calls respond_to_pending_action"]
+    D -->|"Player replies 'do it'"| F["Agent calls respond_to_pending_action"]
     F --> E
     D -->|expired / cancelled| Y["Discarded"]
 ```

@@ -1,8 +1,10 @@
+<!-- nav:top -->
 <div align="right">
 
 🌐 **简体中文** · [English](../en/Game-Memory.md) · 📖 [README](../../../README.md) · 🏠 [Wiki 首页](Home.md)
 
 </div>
+<!-- /nav:top -->
 
 # 🧠 游戏记忆与记忆蒸馏
 
@@ -94,3 +96,13 @@ panda:
 同时加载的玩家数量沿用 `panda.perception.max_players`。可以通过 `panda.agent.disabled_skills: [game-memory]` 隐藏记忆工具。部署时已有的自定义 `prompts/system.md` 不会被覆盖；如果该文件经过定制，应合并新版的记忆检索规则。
 
 相关记忆会作为上下文或工具结果发送给服主配置的模型服务商，详情见[安全与隐私](Privacy-and-Security.md)。
+
+<!-- nav:bottom -->
+---
+
+<div align="center">
+
+⬅️ [🧠 Agent 与工具](Agent-and-Tools.md) &nbsp;·&nbsp; [📚 目录](Home.md) &nbsp;·&nbsp; [📜 技能与提示词](Skills-and-Prompts.md) ➡️
+
+</div>
+<!-- /nav:bottom -->

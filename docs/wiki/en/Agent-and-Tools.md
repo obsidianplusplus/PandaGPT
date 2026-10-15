@@ -39,9 +39,9 @@ sequenceDiagram
 
 | Design | Detail |
 |---|---|
-| 🧵 **Tools run on the main thread** | World, inventory and entity reads happen on the server thread; workers only handle immutable text and images |
+| 🧵 **Bukkit access stays on the main thread** | World, inventory and entity access happens on the server thread; model requests, file I/O and asynchronous tools use background workers |
 | ⏳ **Multi-tick tools** | e.g. `look` casts rays over several ticks and the turn waits for it |
-| 🔀 **Parallel calls** | The model may request several tools at once; they run in order and return together |
+| 🔀 **Controlled parallel calls** | Up to 3 independent reads overlap (configurable from 1–8), with results in call order; writes, deletions and unmarked tools run serially |
 | 💰 **Budgets** | Steps, tool calls, total time and per-result length are capped; when exhausted the model must answer with what it has |
 | 🔁 **Safe retries** | Network retries only re-fetch the model reply and never re-run tools |
 | 🧹 **Stale results dropped** | After logout, timeout, clear, reload or shutdown, old turns never reach the player |
@@ -54,11 +54,12 @@ panda:
   agent:
     max_steps: 8                # model requests per turn
     max_tool_calls: 16          # tool calls per turn
+    max_parallel_reads: 3       # independent read concurrency (1–8)
     turn_timeout_seconds: 120   # total time per turn
-    max_tool_result_chars: 6000 # truncation length for one tool result
+    max_tool_result_chars: 6000 # result budget; full evidence and deletion previews are never truncated
 ```
 
-## 🛠️ All tools (64)
+## 🛠️ All tools (76)
 
 Tools are grouped by skill. **A tool is offered to the model only if an enabled skill lists it under `tools`**; plugin tools appear only when the plugin is installed.
 
@@ -171,7 +172,7 @@ See [Plugin Integrations](Plugin-Integrations.md).
 
 <div align="center">
 
-⬅️ [💬 Talking to Panda](Talking-to-Panda.md) &nbsp;·&nbsp; [📚 Contents](Home.md) &nbsp;·&nbsp; [📜 Skills & Prompts](Skills-and-Prompts.md) ➡️
+⬅️ [💬 Talking to Panda](Talking-to-Panda.md) &nbsp;·&nbsp; [📚 Contents](Home.md) &nbsp;·&nbsp; [🧠 Game Memory](Game-Memory.md) ➡️
 
 </div>
 <!-- /nav:bottom -->

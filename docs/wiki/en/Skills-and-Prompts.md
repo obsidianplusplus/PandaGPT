@@ -16,8 +16,8 @@ The agent's behaviour is not hard-coded. Two kinds of text files define it: **sk
 
 ```mermaid
 flowchart LR
-    A["System prompt<br/>lists only 34 skill names + one-line descriptions"] --> B{"Model decides<br/>which skill it needs"}
-    B -->|load_skill("building")| C["Reads the full skill<br/>method + unlocks its tools"]
+    A["System prompt<br/>lists only 43 skill names + one-line descriptions"] --> B{"Model decides<br/>which skill it needs"}
+    B -->|"load_skill('building')"| C["Reads the full skill<br/>method + unlocks its tools"]
     C --> D["Calls preview_structure etc."]
 ```
 
@@ -144,7 +144,7 @@ Template variables:
 
 <div align="center">
 
-⬅️ [🧠 Agent & Tools](Agent-and-Tools.md) &nbsp;·&nbsp; [📚 Contents](Home.md) &nbsp;·&nbsp; [🔔 Proactive Assistant](Proactive-Assistant.md) ➡️
+⬅️ [🧠 Game Memory](Game-Memory.md) &nbsp;·&nbsp; [📚 Contents](Home.md) &nbsp;·&nbsp; [🔔 Proactive Assistant](Proactive-Assistant.md) ➡️
 
 </div>
 <!-- /nav:bottom -->

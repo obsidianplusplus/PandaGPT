@@ -25,7 +25,6 @@ PandaGPT 以**软依赖**方式对接常见插件：服务器装了哪个，Agen
 | 🕵️ **CoreProtect** | `block-history` | 方块最近被谁放置或破坏（需 `pandagpt.blockhistory`） | “谁拆了我的箱子？” |
 | ⚔️ **mcMMO** | `mcmmo` | 技能等级、升级所需经验、总战力 | “挖掘还差多少升级？” |
 | ✨ **AuraSkills** | `auraskills` | 技能等级、属性、法力 | “我该加什么属性？” |
-
 | 🧑 **Citizens** | `citizens` | 附近可见 NPC 的名称、ID、位置和距离，遵守视线与 PlayerFilter | “我附近有哪些 NPC？” |
 | 🛒 **Shopkeepers** | `shopkeepers` | 附近可见实体商店；本人当前有效交易界面的实际报价与附魔 | “这个商店的经验修补卖多少钱？” |
 | 📜 **Quests（PikaMug）** | `quests` | 本人已加载的活动任务、阶段和原生目标计数 | “我的任务做到哪一步了？” |

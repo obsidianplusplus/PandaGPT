@@ -65,7 +65,7 @@ Paper 26.3 · Java 25 · 15 model providers · 19 plugin integrations · 43 skil
 flowchart LR
     P["🎮 Player<br/>panda what is this?"] --> A["🧠 Agent<br/>system prompt + skill catalog"]
     A -->|load_skill| S["📜 Skills"]
-    A -->|tool calls| T["🛠️ 76 tools<br/>run on the main thread"]
+    A -->|tool calls| T["🛠️ 76 tools<br/>bounded concurrent reads"]
     T --> W["🌍 World / inventory / memory"]
     T --> I["🔌 Plugin APIs"]
     T --> V["👁️ Vision reconstruction"]

@@ -14,7 +14,7 @@ The configuration lives in `plugins/PandaGPT/config.yml` (currently `config_vers
 
 ## Contents
 
-[Language](#language) · [Agent](#agent) · [Conversation](#conversation) · [Model](#model) · [Requests](#requests) · [Perception](#perception) · [Vision](#vision) · [Features](#features) · [Integrations](#integrations) · [Commands](#commands) · [Logging](#logging) · [Proxy](#proxy)
+[Language](#language) · [Agent](#agent) · [Conversation](#conversation) · [Model](#model) · [Requests](#requests) · [Game Memory](#game-memory-and-distillation) · [Perception](#perception) · [Vision](#vision) · [Features](#features) · [Integrations](#integrations) · [Commands](#commands) · [Logging](#logging) · [Proxy](#proxy)
 
 ## Language
 

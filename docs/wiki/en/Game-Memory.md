@@ -1,8 +1,10 @@
+<!-- nav:top -->
 <div align="right">
 
 🌐 [简体中文](../zh/Game-Memory.md) · **English** · 📖 [README](../../../README.en.md) · 🏠 [Wiki home](Home.md)
 
 </div>
+<!-- /nav:top -->
 
 # 🧠 Game memory and memory distillation
 
@@ -63,3 +65,13 @@ panda:
 Existing custom `prompts/system.md` files are preserved on deployment; merge the updated memory rules into customized prompts. Relevant memories are sent to the configured model provider as context or tool results; see [Privacy & Security](Privacy-and-Security.md).
 
 Independent read-only tools overlap up to `panda.agent.max_parallel_reads` (default 3, range 1–8). Writes, deletions and unmarked tools are barriers; results preserve call order. Bukkit access stays on the server main thread.
+
+<!-- nav:bottom -->
+---
+
+<div align="center">
+
+⬅️ [🧠 Agent & Tools](Agent-and-Tools.md) &nbsp;·&nbsp; [📚 Contents](Home.md) &nbsp;·&nbsp; [📜 Skills & Prompts](Skills-and-Prompts.md) ➡️
+
+</div>
+<!-- /nav:bottom -->

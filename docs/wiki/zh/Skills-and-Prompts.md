@@ -17,7 +17,7 @@ Agent 的行为不是写死在代码里的，而是由两类文本文件决定�
 ```mermaid
 flowchart LR
     A["系统提示<br/>只列 43 个技能的名称 + 一句话简介"] --> B{"模型判断<br/>需要哪个技能？"}
-    B -->|load_skill("building")| C["读取技能全文<br/>详细做法 + 解锁对应工具"]
+    B -->|"load_skill('building')"| C["读取技能全文<br/>详细做法 + 解锁对应工具"]
     C --> D["调用 preview_structure 等工具"]
 ```
 
@@ -144,7 +144,7 @@ requires: essentials
 
 <div align="center">
 
-⬅️ [🧠 Agent 与工具](Agent-and-Tools.md) &nbsp;·&nbsp; [📚 目录](Home.md) &nbsp;·&nbsp; [🔔 主动式助手](Proactive-Assistant.md) ➡️
+⬅️ [🧠 游戏记忆](Game-Memory.md) &nbsp;·&nbsp; [📚 目录](Home.md) &nbsp;·&nbsp; [🔔 主动式助手](Proactive-Assistant.md) ➡️
 
 </div>
 <!-- /nav:bottom -->

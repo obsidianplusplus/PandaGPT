@@ -1,11 +1,13 @@
 **🐼 PandaGPT**
 
 **简体中文**
+
 - 🏠 [首页](zh/Home.md)
 - 📦 [安装与升级](zh/Installation.md)
 - 🤖 [模型服务商](zh/Model-Providers.md)
 - 💬 [和 Panda 对话](zh/Talking-to-Panda.md)
 - 🧠 [Agent 与工具](zh/Agent-and-Tools.md)
+- 🧠 [游戏记忆与记忆蒸馏](zh/Game-Memory.md)
 - 📜 [技能与提示词](zh/Skills-and-Prompts.md)
 - 🔔 [主动式助手](zh/Proactive-Assistant.md)
 - 👁️ [视觉与感知](zh/Vision-and-Perception.md)
@@ -21,11 +23,13 @@
 - 🛠️ [开发指南](zh/Development.md)
 
 **English**
+
 - 🏠 [Home](en/Home.md)
 - 📦 [Installation](en/Installation.md)
 - 🤖 [Model Providers](en/Model-Providers.md)
 - 💬 [Talking to Panda](en/Talking-to-Panda.md)
 - 🧠 [Agent & Tools](en/Agent-and-Tools.md)
+- 🧠 [Game Memory & Distillation](en/Game-Memory.md)
 - 📜 [Skills & Prompts](en/Skills-and-Prompts.md)
 - 🔔 [Proactive Assistant](en/Proactive-Assistant.md)
 - 👁️ [Vision & Perception](en/Vision-and-Perception.md)
